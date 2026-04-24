@@ -1,0 +1,2 @@
+# moosytype
+monkeytype like

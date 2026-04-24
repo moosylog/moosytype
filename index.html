@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Moosytype - ZMK Matrix Training</title>
+    <style>
+        /* --- CSS VARIABLES & THEME (MONKEYTYPE ALIGNED) --- */
+        :root {
+            --bg-color: #323437;
+            --text-color: #e2b714;
+            --secondary-text: #646669;
+            --key-color: #2c2e31;
+            --key-text: #d1d0c5;
+            --correct: #d1d0c5;
+            --error: #ca4754;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --transition-speed: 0.3s;
+        }
+
+        /* --- GLOBAL STYLES --- */
+        body {
+            font-family: 'Roboto Mono', monospace; background: var(--bg-color); color: var(--text-color);
+            display: flex; flex-direction: column; align-items: center; padding: 0 20px; margin: 0;
+            user-select: none; overflow-x: hidden; min-height: 100vh;
+        }
+
+        /* --- OVERLAYS --- */
+        #startOverlay {
+            position: fixed; inset: 0; background: var(--bg-color); z-index: 3000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; transition: opacity var(--transition-speed);
+        }
+        #startOverlay .brand { font-size: 3rem; color: var(--correct); margin: 0 0 5px 0; font-family: 'Lexend Deca', sans-serif; font-weight: 400; letter-spacing: -2px; pointer-events: none; display: flex; align-items: center; justify-content: center; gap: 12px; line-height: 1;}
+        #startOverlay .brand .icon { color: var(--text-color); width: 50px; height: 50px; display: block; }
+        #startOverlay .subtitle { font-size: 14px; color: var(--secondary-text); font-family: 'Roboto Mono', monospace; margin: 0 0 30px 0; pointer-events: none; text-align: center; transform: translateX(31px); }
+        #startOverlay p { font-size: 1rem; color: var(--text-color); margin: 0; pointer-events: none; animation: pulse 2s infinite; text-align: center; transform: translateX(31px); }
+
+        #tabRestartOverlay {
+            position: fixed; inset: 0; background: rgba(50, 52, 55, 0.85); z-index: 2500;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.15s ease; backdrop-filter: blur(2px);
+        }
+        #tabRestartOverlay.active { opacity: 1; pointer-events: all; }
+        #tabRestartOverlay .box { background: var(--key-color); padding: 20px 40px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 30px var(--shadow); }
+        #tabRestartOverlay span.key { background: var(--bg-color); color: var(--correct); padding: 5px 12px; border-radius: 6px; font-weight: bold; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* --- HEADER & NAVIGATION --- */
+        header {
+            width: 100%; max-width: 1050px; display: flex; justify-content: space-between; align-items: center;
+            padding: 30px 0; margin-bottom: 20px; flex-shrink: 0; transition: var(--transition-speed);
+        }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 2.2rem; color: var(--correct); font-family: 'Lexend Deca', sans-serif; font-weight: 400; letter-spacing: -1px; cursor: pointer; transition: color var(--transition-speed); line-height: 1;}
+        .brand:hover { color: var(--text-color); }
+        .brand .icon { color: var(--text-color); width: 36px; height: 36px; display: block; transition: color var(--transition-speed); }
+        
+        .mt-navbar { display: flex; align-items: center; gap: 15px; background: transparent; font-size: 13px; color: var(--secondary-text); }
+        .mt-group { display: flex; align-items: center; gap: 10px; background: var(--key-color); padding: 5px 12px; border-radius: 8px; }
+        .mt-btn, .mt-select {
+            background: transparent; border: none; color: var(--secondary-text); font-family: inherit; 
+            font-size: 13px; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: color var(--transition-speed); outline: none;
+        }
+        .mt-btn:hover, .mt-select:hover { color: var(--correct); }
+        .mt-btn.active { color: var(--text-color); }
+        .mt-select option { background: var(--bg-color); color: var(--correct); }
+
+        .settings-toggle { background: transparent; border: none; color: var(--secondary-text); font-size: 1.2rem; cursor: pointer; transition: var(--transition-speed); outline: none; padding: 5px; }
+        .settings-toggle:hover { color: var(--text-color); transform: rotate(90deg); }
+
+        /* --- FOCUS MODE LOGIC --- */
+        header.typing-focus .brand, 
+        header.typing-focus .brand .icon,
+        header.typing-focus .mt-btn.active {
+            color: var(--secondary-text) !important;
+        }
+
+        /* --- SETTINGS SUBMENU --- */
+        #settingsMenu {
+            width: 100%; max-width: 1050px; background: transparent; padding: 0;
+            margin-bottom: 30px; display: none; flex-direction: column; gap: 30px;
+            animation: slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); flex-shrink: 0;
+        }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .settings-section { display: flex; flex-direction: column; gap: 0; background: var(--key-color); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+        .settings-section-title { font-size: 12px; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-left: 5px; }
+        
+        .mt-setting-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 2px solid var(--bg-color); }
+        .mt-setting-row:last-child { border-bottom: none; }
+        .mt-setting-label { display: flex; flex-direction: column; gap: 4px; }
+        .mt-setting-title { font-size: 14px; color: var(--correct); font-weight: bold; }
+        .mt-setting-desc { font-size: 11px; color: var(--secondary-text); }
+        .mt-setting-action { display: flex; gap: 10px; align-items: center; }
+
+        .mt-toggle-btn { background: var(--bg-color); border: 2px solid transparent; color: var(--secondary-text); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 12px; transition: var(--transition-speed); font-weight: bold; }
+        .mt-toggle-btn:hover { color: var(--correct); }
+        .mt-toggle-btn.active { color: var(--bg-color); background: var(--text-color); }
+        .mt-toggle-btn.danger { color: var(--error); border-color: rgba(202, 71, 84, 0.3); }
+        .mt-toggle-btn.danger:hover { background: var(--error); color: white; }
+
+        .upload-btn { background: var(--bg-color); color: var(--correct); padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: center; transition: var(--transition-speed); border: none; font-family: inherit; font-weight: bold;}
+        .upload-btn:hover { color: var(--text-color); }
+
+        /* Scoreboard */
+        .score-row { display: flex; justify-content: space-between; padding: 10px 20px; border-bottom: 2px solid var(--bg-color); color: var(--correct); font-size: 14px; }
+        .score-row:last-child { border-bottom: none; }
+        .score-wpm { color: var(--text-color); font-size: 18px; font-weight: bold; min-width: 80px; }
+        .score-details { color: var(--secondary-text); font-size: 12px; display: flex; gap: 15px; align-items: center;}
+
+        /* --- TOAST NOTIFICATIONS --- */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--text-color); color: var(--bg-color); padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); pointer-events: none; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.error { background: var(--error); color: white; }
+
+        /* --- TYPING AREA --- */
+        .typing-wrapper { 
+            width: 100%; max-width: 1050px; display: flex; flex-direction: column; flex: 1; 
+            align-items: center; justify-content: flex-start; padding-bottom: 5vh; transition: width var(--transition-speed);
+        }
+        
+        #progressIndicator, #timerDisplay { width: 100%; text-align: left; font-size: 24px; color: var(--text-color); margin-bottom: 5px; line-height: 1; }
+        #timerDisplay { display: none; }
+        
+        .sample-text-container {
+            position: relative; width: 100%; font-size: 32px; line-height: 1.6em; color: var(--secondary-text);
+            text-align: left; word-break: break-word; height: calc(32px * 1.6 * 3); 
+            overflow: hidden; border: none; letter-spacing: 1px; margin-bottom: 40px;
+        }
+        #textWrapper { position: relative; width: 100%; transition: transform 0.2s ease-out; }
+
+        .correct-text { color: var(--correct); }
+        .error-char { color: var(--error); border-bottom: 3px solid var(--error); background: rgba(202, 71, 84, 0.15); }
+        
+        #caret {
+            position: absolute; width: 3px; height: 1.1em; background-color: var(--text-color);
+            border-radius: 2px; transition: left 0.1s ease-out, top 0.1s ease-out; z-index: 10; margin-top: 0.25em;
+        }
+        .blinking { animation: caretBlink 1s infinite; }
+
+        /* --- KEYBOARD --- */
+        .keyboard-container { width: 100%; max-width: 1050px; position: relative; display: flex; flex-direction: column; align-items: center; transition: max-width 0.3s ease; }
+        #keyboardSvg { width: 100%; height: auto; overflow: visible; display: block; }
+        .key-rect { fill: var(--key-color); rx: 8; ry: 8; transition: fill 0.15s ease, stroke 0.15s ease; stroke: #1e1e1e; stroke-width: 2px; }
+        .key-text { font-family: 'Poppins', sans-serif; text-anchor: middle; dominant-baseline: central; fill: var(--key-text); pointer-events: none; font-weight: 500; }
+        .key-group { cursor: grab; }
+        
+        .key-rect.active { fill: var(--correct) !important; stroke: var(--correct) !important; }
+        .key-rect.active-error { fill: var(--error) !important; stroke: var(--error) !important; }
+        .key-group.expected .key-rect { stroke: var(--text-color); stroke-width: 3; }
+        .key-group.expected text { fill: #f8fafc !important; font-weight: 800; }
+        
+        /* Homerow Highlight */
+        .key-group.homerow .key-rect { stroke: var(--text-color); fill: rgba(255, 255, 255, 0.05); }
+        .key-group.homerow text { fill: var(--text-color); opacity: 0.8; }
+        .key-group.homerow.expected .key-rect { stroke: var(--text-color); stroke-width: 3; fill: var(--key-color); }
+        .key-group.homerow .key-rect.active { fill: var(--correct) !important; stroke: var(--correct) !important; }
+        .key-group.homerow .key-rect.active-error { fill: var(--error) !important; stroke: var(--error) !important; }
+
+        #dragGhost { pointer-events: none; position: fixed; display: none; z-index: 1000; filter: drop-shadow(0 10px 15px var(--shadow)); }
+        .drag-hint { font-size: 12px; color: var(--secondary-text); transition: opacity 0.3s; opacity: 0.6; margin-top: 15px; }
+
+        .typing-wrapper.stats-active .keyboard-container { max-width: 800px; margin-top: 0px; }
+        .typing-wrapper.stats-active .drag-hint { display: none; }
+
+        /* --- STATS & DISPLAYS --- */
+        #streakDisplay { position: fixed; top: 20px; right: 30px; font-size: 14px; color: var(--secondary-text); z-index: 100; display: none; }
+        #streakDisplay span { color: var(--text-color); font-size: 24px; }
+        #debugArea { display: none; width: 100%; background: rgba(0, 0, 0, 0.2); padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; color: var(--correct); border: 1px solid rgba(255, 255, 255, 0.05); }
+
+        .stats-container { display: none; width: 100%; text-align: left; animation: fadeIn 0.3s ease; margin-bottom: 30px; }
+        .stats-top { display: flex; gap: 40px; align-items: stretch; margin-bottom: 20px; width: 100%; }
+        .main-stats { display: flex; flex-direction: column; justify-content: center; gap: 10px; flex-shrink: 0; }
+        .stat-item { display: flex; flex-direction: column; justify-content: flex-start; }
+        .stat-title { color: var(--secondary-text); font-size: 32px; line-height: 1; margin-bottom: -5px; }
+        .stat-value { color: var(--text-color); font-size: 64px; font-weight: 500; line-height: 1; }
+        
+        .chart-container { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
+        #wpmSparkline { width: 100%; height: 100%; max-height: 150px; display: block; }
+        .sparkline-line { stroke: var(--text-color); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .sparkline-area { fill: var(--text-color); opacity: 0.1; }
+        .sparkline-dot { fill: var(--text-color); }
+        .sparkline-label { fill: var(--secondary-text); font-size: 14px; }
+
+        .stats-bottom { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+        .sub-stats { display: flex; gap: 30px; flex-wrap: wrap; }
+        .sub-stat { display: flex; flex-direction: column; color: var(--secondary-text); font-size: 14px; line-height: 1.2;}
+        .sub-stat span { color: var(--text-color); font-size: 24px; font-weight: 400; }
+
+        .finger-stats { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+        .finger-stat { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--key-color); border: 1px solid #1e1e1e; }
+        .finger-stat .finger-name { font-size: 11px; color: var(--secondary-text); text-transform: uppercase; }
+        .finger-stat .finger-acc { font-size: 16px; color: var(--correct); font-weight: bold; }
+
+        .trouble-section { display: flex; flex-direction: column; gap: 10px; margin-top: 5px; }
+        .mistake-chars { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .mistake-chars span { font-size: 16px; font-weight: bold; background: rgba(202, 71, 84, 0.15); color: var(--error); padding: 4px 10px; border-radius: 6px; }
+        
+        .history-summary { color: var(--secondary-text); font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .history-summary span { color: var(--correct); }
+
+        .restart-hint { color: var(--secondary-text); font-size: 14px; margin-top: 30px; text-align: center; width: 100%; }
+
+        /* --- MODAL --- */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 2000; }
+        .modal-content { background: var(--key-color); padding: 30px; border-radius: 12px; width: 80%; max-width: 600px; }
+        textarea { width: 100%; height: 150px; background: #1e1e1e; color: var(--correct); border: 2px solid var(--secondary-text); padding: 15px; font-family: inherit; font-size: 16px; resize: none; border-radius: 8px; box-sizing: border-box; outline: none; transition: 0.2s; }
+        textarea:focus { border-color: var(--text-color); }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;600&family=Poppins:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="toastMsg" class="toast">Notification</div>
+
+    <div id="startOverlay" onclick="startApp()">
+        <div class="brand">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <line x1="120" y1="100" x2="120" y2="400" stroke="currentColor" stroke-width="40" stroke-linecap="round"></line>
+                <line x1="120" y1="400" x2="400" y2="400" stroke="currentColor" stroke-width="40" stroke-linecap="round"></line>
+                <polyline points="160,340 220,300 270,340 320,240 360,280 420,200" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"></polyline>
+            </svg>
+            moosytype
+        </div>
+        <div class="subtitle">To love is to recognize</div>
+        <p>Click to continue</p>
+    </div>
+
+    <div id="tabRestartOverlay">
+        <div class="box">
+            <span class="key">Tab</span> + <span class="key">Enter</span>
+            <span style="color:var(--secondary-text); font-weight:bold; margin-left:10px;">Restart Test</span>
+        </div>
+    </div>
+
+    <header id="mainHeader">
+        <div class="brand" onclick="handleLogoClick()" title="Home / Exit Settings">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <line x1="120" y1="100" x2="120" y2="400" stroke="currentColor" stroke-width="40" stroke-linecap="round"></line>
+                <line x1="120" y1="400" x2="400" y2="400" stroke="currentColor" stroke-width="40" stroke-linecap="round"></line>
+                <polyline points="160,340 220,300 270,340 320,240 360,280 420,200" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"></polyline>
+            </svg>
+            moosytype
+        </div>
+        
+        <div class="mt-navbar">
+            <div class="mt-group" id="modeButtons">
+                <button id="wordsBtn" class="mt-btn active">words</button>
+                <button id="newsBtn" class="mt-btn">news</button>
+                <button id="myTextBtn" class="mt-btn">custom</button>
+            </div>
+            
+            <div class="mt-group">
+                <select id="wordCountSelect" class="mt-select">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span style="opacity:0.3">|</span>
+                <select id="timedSelect" class="mt-select">
+                    <option value="0" selected>off</option>
+                    <option value="15">15s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                </select>
+            </div>
+            
+            <button class="settings-toggle" onclick="toggleSettings()" title="Settings">⚙️</button>
+        </div>
+    </header>
+
+    <div id="settingsMenu">
+        
+        <div id="bestScoresContainer" style="display:none;">
+            <div class="settings-section-title">Personal Bests (Top 5)</div>
+            <div class="settings-section" id="bestScoresList" style="margin-bottom: 10px;"></div>
+        </div>
+
+        <div class="settings-section-title">Matrix & Layout</div>
+        <div class="settings-section">
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Hardware</span>
+                    <span class="mt-setting-desc">Select your physical keyboard shape</span>
+                </div>
+                <div class="mt-setting-action">
+                    <select id="hwSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Source Layout (OS)</span>
+                    <span class="mt-setting-desc">The physical layout your computer outputs</span>
+                </div>
+                <div class="mt-setting-action">
+                    <label for="sourceJsonUpload" class="upload-btn">📁 JSON</label>
+                    <input type="file" id="sourceJsonUpload" accept=".json" style="display: none;" onchange="handleJsonUpload(event, 'source')">
+                    <select id="sourceSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Target Layout</span>
+                    <span class="mt-setting-desc">The visual layout you want to test drive</span>
+                </div>
+                <div class="mt-setting-action">
+                    <label for="targetJsonUpload" class="upload-btn">📁 JSON</label>
+                    <input type="file" id="targetJsonUpload" accept=".json" style="display: none;" onchange="handleJsonUpload(event, 'target')">
+                    <select id="targetSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section-title">Preferences</div>
+        <div class="settings-section">
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Show Keyboard</span>
+                    <span class="mt-setting-desc">Display the interactive SVG keyboard</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn" id="tgl-showKb-off" onclick="setPref('showKb', false)">off</button>
+                    <button class="mt-toggle-btn active" id="tgl-showKb-on" onclick="setPref('showKb', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Show Homerow</span>
+                    <span class="mt-setting-desc">Highlight the resting row keys</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-homerow-off" onclick="setPref('homerow', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-homerow-on" onclick="setPref('homerow', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Show Next Key Hint</span>
+                    <span class="mt-setting-desc">Outline the expected key</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn" id="tgl-hints-off" onclick="setPref('hints', false)">off</button>
+                    <button class="mt-toggle-btn active" id="tgl-hints-on" onclick="setPref('hints', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Mirror Layout</span>
+                    <span class="mt-setting-desc">Swap left and right hands visually</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-mirror-off" onclick="setPref('mirror', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-mirror-on" onclick="setPref('mirror', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Mechanical Sound</span>
+                    <span class="mt-setting-desc">Play a synthetic click on key press</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-sound-off" onclick="setPref('sound', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-sound-on" onclick="setPref('sound', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Debug Mode</span>
+                    <span class="mt-setting-desc">Show raw keycodes and OS signals</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-debug-off" onclick="setPref('debug', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-debug-on" onclick="setPref('debug', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title" style="color:var(--error);">Reset App</span>
+                    <span class="mt-setting-desc">Wipe all local storage and reset defaults</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn danger active" onclick="clearAllData()">Clear Cache</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="typing-wrapper" id="typingWrapper">
+        <div id="debugArea">debug info: ready...</div>
+        <div id="progressIndicator">0/0</div>
+        <div id="timerDisplay"></div>
+        <div id="streakDisplay">streak <span id="streakCount">0</span></div>
+
+        <div class="sample-text-container" id="sampleContainer">
+            <div id="textWrapper">
+                <div id="caret" class="blinking"></div>
+                <div id="sampleDisplay"></div>
+            </div>
+        </div>
+
+        <div id="statsContainer" class="stats-container">
+            <div class="stats-top">
+                <div class="main-stats">
+                    <div class="stat-item"><div class="stat-title">wpm</div><div id="statWpm" class="stat-value">0</div></div>
+                    <div class="stat-item"><div class="stat-title">acc</div><div id="statAcc" class="stat-value">0%</div></div>
+                </div>
+                <div class="chart-container">
+                    <svg id="wpmSparkline" preserveAspectRatio="none"></svg>
+                </div>
+            </div>
+            
+            <div class="stats-bottom">
+                <div class="sub-stats">
+                    <div class="sub-stat">test type<br><span id="statTestType">words 25</span></div>
+                    <div class="sub-stat">time<br><span id="statTime">0s</span></div>
+                    <div class="sub-stat">words<br><span id="statWords">0</span></div>
+                    <div class="sub-stat">streak<br><span id="statStreak">0</span></div>
+                </div>
+                
+                <div id="fingerStats" class="finger-stats"></div>
+                
+                <div class="trouble-section">
+                    <div id="mistakeInfo" class="mistake-chars"></div>
+                    <div id="historyInfo" class="history-summary"></div>
+                </div>
+            </div>
+            
+            <div class="restart-hint">press <span style="color:var(--text-color)">Tab</span> then <span style="color:var(--text-color)">Enter</span> to restart <span id="mistakeHint"></span></div>
+        </div>
+
+        <div class="keyboard-container" id="keyboardContainer">
+            <svg id="keyboardSvg"></svg>
+            <div class="drag-hint" id="dragHint">Drag keys to tweak target layout • Tab+Enter to restart</div>
+        </div>
+    </div>
+
+    <div id="textModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top:0; font-size:20px; color:var(--text-color);">Custom Text</h2>
+            <textarea id="customTextInput" placeholder="Paste your practice text here..."></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:15px; margin-top:20px;">
+                <button class="mt-btn" onclick="closeModal()" style="border: 1px solid var(--secondary-text)">Cancel</button>
+                <button class="mt-btn active" onclick="applyCustomText()" style="background:var(--text-color); color:var(--bg-color); font-weight:bold;">Set Text</button>
+            </div>
+        </div>
+    </div>
+
+    <svg id="dragGhost" width="54" height="54">
+        <rect width="54" height="54" rx="8" ry="8" fill="var(--text-color)" opacity="0.9" />
+        <text id="ghostText" x="27" y="27" text-anchor="middle" dominant-baseline="central" fill="var(--bg-color)" font-weight="700" font-size="18" font-family="Poppins"></text>
+    </svg>
+
+    <script>
+    /* ==========================================================================
+       HARDWARE GEOMETRY & LAYOUT DATA (LLM Compressed)
+       ========================================================================== */
+    const APP_VERSION = "1.3.0"; 
+    let commonWords = ["the","be","to","of","and","a","in","that","have","I","it","for","not","on","with","he","as","you","do","at","this","but","his","by","from","they","we","say","her","she","or","an","will","my","one","all","would","there","their","what","so","up","out","if","about","who","get","which","go","me","when","make","can","like","time","no","just","him","know","take","people","into","year","your","good","some","could","them","see","other","than","then","now","look","only","come","its","over","think","also","back","after","use","two","how","our","work","first","well","way","even","new","want","because","any","these","give","day","most","us"]; // Fallback
+
+    // Fetch exact Monkeytype dictionary
+    async function loadDictionary() {
+        try {
+            const res = await fetch('https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/english.json');
+            if (res.ok) {
+                const data = await res.json();
+                // Monkeytype defaults to the first 200 words for normal English mode
+                if (data.words && data.words.length >= 200) {
+                    commonWords = data.words.slice(0, 200); 
+                }
+            }
+        } catch(e) { 
+            console.warn("Using offline fallback dictionary."); 
+        }
+    }
+	
+    const HARDWARE = {
+        ansi60: { name: "Standard ANSI 60%", geo: [ {x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0},{x:4,y:0},{x:5,y:0},{x:6,y:0},{x:7,y:0},{x:8,y:0},{x:9,y:0},{x:10,y:0},{x:11,y:0},{x:12,y:0},{x:13, y:0, w:2}, {x:0, y:1, w:1.5},{x:1.5, y:1},{x:2.5, y:1},{x:3.5, y:1},{x:4.5, y:1},{x:5.5, y:1},{x:6.5, y:1},{x:7.5, y:1},{x:8.5, y:1},{x:9.5, y:1},{x:10.5, y:1},{x:11.5, y:1},{x:12.5, y:1},{x:13.5, y:1, w:1.5}, {x:0, y:2, w:1.75},{x:1.75, y:2},{x:2.75, y:2},{x:3.75, y:2},{x:4.75, y:2},{x:5.75, y:2},{x:6.75, y:2},{x:7.75, y:2},{x:8.75, y:2},{x:9.75, y:2},{x:10.75, y:2},{x:11.75, y:2},{x:12.75, y:2, w:2.25}, {x:0, y:3, w:2.25},{x:2.25, y:3},{x:3.25, y:3},{x:4.25, y:3},{x:5.25, y:3},{x:6.25, y:3},{x:7.25, y:3},{x:8.25, y:3},{x:9.25, y:3},{x:10.25, y:3},{x:11.25, y:3},{x:12.25, y:3, w:2.75}, {x:0, y:4, w:1.25},{x:1.25, y:4, w:1.25},{x:2.5, y:4, w:1.25},{x:3.75, y:4, w:6.25},{x:10, y:4, w:1.25},{x:11.25, y:4, w:1.25},{x:12.5, y:4, w:1.25},{x:13.75, y:4, w:1.25} ], pos: [ "K00","K01","K02","K03","K04","K05","K06","K07","K08","K09","K0A","K0B","K0C","K0D", "K10","K11","K12","K13","K14","K15","K16","K17","K18","K19","K1A","K1B","K1C","K1D", "K20","K21","K22","K23","K24","K25","K26","K27","K28","K29","K2A","K2B","K2C", "K30","K31","K32","K33","K34","K35","K36","K37","K38","K39","K3A","K3B", "K40","K41","K42","K43","K44","K45","K46","K47" ], layouts: { 'qwerty': ['Esc','1','2','3','4','5','6','7','8','9','0','-','=','Backsp','Tab','Q','W','E','R','T','Y','U','I','O','P','[',']','\\','Caps','A','S','D','F','G','H','J','K','L',';','\'','Enter','LShift','Z','X','C','V','B','N','M',',','.','/','RShift','LCtrl','LWin','LAlt','Space','RAlt','RWin','Menu','RCtrl'], 'colemak-dh': ['Esc','1','2','3','4','5','6','7','8','9','0','-','=','Backsp','Tab','Q','W','F','P','B','J','L','U','Y',';','[',']','\\','Caps','A','R','S','T','G','M','N','E','I','O','\'','Enter','LShift','Z','X','C','D','V','K','H',',','.','/','RShift','LCtrl','LWin','LAlt','Space','RAlt','RWin','Menu','RCtrl'], 'dvorak': ['Esc','1','2','3','4','5','6','7','8','9','0','[',']','Backsp','Tab','\'',',','.','P','Y','F','G','C','R','L','/','=','\\','Caps','A','O','E','U','I','D','H','T','N','S','-','Enter','LShift',';','Q','J','K','X','B','M','W','V','Z','RShift','LCtrl','LWin','LAlt','Space','RAlt','RWin','Menu','RCtrl'] } },
+        glove80: { name: "MoErgo Glove80", geo: [ {"x": 0, "y": 0.5}, {"x": 1, "y": 0.5}, {"x": 2, "y": 0}, {"x": 3, "y": 0}, {"x": 4, "y": 0}, {"x": 13, "y": 0}, {"x": 14, "y": 0}, {"x": 15, "y": 0}, {"x": 16, "y": 0.5}, {"x": 17, "y": 0.5}, {"x": 0, "y": 1.5}, {"x": 1, "y": 1.5}, {"x": 2, "y": 1}, {"x": 3, "y": 1}, {"x": 4, "y": 1}, {"x": 5, "y": 1}, {"x": 12, "y": 1}, {"x": 13, "y": 1}, {"x": 14, "y": 1}, {"x": 15, "y": 1}, {"x": 16, "y": 1.5}, {"x": 17, "y": 1.5}, {"x": 0, "y": 2.5}, {"x": 1, "y": 2.5}, {"x": 2, "y": 2}, {"x": 3, "y": 2}, {"x": 4, "y": 2}, {"x": 5, "y": 2}, {"x": 12, "y": 2}, {"x": 13, "y": 2}, {"x": 14, "y": 2}, {"x": 15, "y": 2}, {"x": 16, "y": 2.5}, {"x": 17, "y": 2.5}, {"x": 0, "y": 3.5}, {"x": 1, "y": 3.5}, {"x": 2, "y": 3}, {"x": 3, "y": 3}, {"x": 4, "y": 3}, {"x": 5, "y": 3}, {"x": 12, "y": 3}, {"x": 13, "y": 3}, {"x": 14, "y": 3}, {"x": 15, "y": 3}, {"x": 16, "y": 3.5}, {"x": 17, "y": 3.5}, {"x": 0, "y": 4.5}, {"x": 1, "y": 4.5}, {"x": 2, "y": 4}, {"x": 3, "y": 4}, {"x": 4, "y": 4}, {"x": 5, "y": 4}, {"x": 6.4, "y": 4, "r": 20, "rx": 4, "ry": 4}, {"x": 7.8, "y": 3.3, "r": 30, "rx": 4, "ry": 3.3}, {"x": 10.1, "y": 1.5, "r": 45, "rx": 4, "ry": 1.5}, {"x": 7, "y": 1.5, "r": -45, "rx": 14, "ry": 1.5}, {"x": 9.3, "y": 3.3, "r": -30, "rx": 14, "ry": 3.3}, {"x": 10.7, "y": 4, "r": -20, "rx": 14, "ry": 4}, {"x": 12, "y": 4}, {"x": 13, "y": 4}, {"x": 14, "y": 4}, {"x": 15, "y": 4}, {"x": 16, "y": 4.5}, {"x": 17, "y": 4.5}, {"x": 0, "y": 5.5}, {"x": 1, "y": 5.5}, {"x": 2, "y": 5}, {"x": 3, "y": 5}, {"x": 4, "y": 5}, {"x": 5.3, "y": 5.4, "r": 15, "rx": 4, "ry": 5.4}, {"x": 6.6, "y": 5, "r": 25, "rx": 4, "ry": 5}, {"x": 9, "y": 3.2, "r": 45, "rx": 4, "ry": 3.2}, {"x": 8, "y": 3.2, "r": -45, "rx": 14, "ry": 3.2}, {"x": 10.4, "y": 5, "r": -25, "rx": 14, "ry": 5}, {"x": 11.7, "y": 5.4, "r": -15, "rx": 14, "ry": 5.4}, {"x": 13, "y": 5}, {"x": 14, "y": 5}, {"x": 15, "y": 5}, {"x": 16, "y": 5.5}, {"x": 17, "y": 5.5} ], pos: [ "LH_C6R1", "LH_C5R1", "LH_C4R1", "LH_C3R1", "LH_C2R1", "RH_C2R1", "RH_C3R1", "RH_C4R1", "RH_C5R1", "RH_C6R1", "LH_C6R2", "LH_C5R2", "LH_C4R2", "LH_C3R2", "LH_C2R2", "LH_C1R2", "RH_C1R2", "RH_C2R2", "RH_C3R2", "RH_C4R2", "RH_C5R2", "RH_C6R2", "LH_C6R3", "LH_C5R3", "LH_C4R3", "LH_C3R3", "LH_C2R3", "LH_C1R3", "RH_C1R3", "RH_C2R3", "RH_C3R3", "RH_C4R3", "RH_C5R3", "RH_C6R3", "LH_C6R4", "LH_C5R4", "LH_C4R4", "LH_C3R4", "LH_C2R4", "LH_C1R4", "RH_C1R4", "RH_C2R4", "RH_C3R4", "RH_C4R4", "RH_C5R4", "RH_C6R4", "LH_C6R5", "LH_C5R5", "LH_C4R5", "LH_C3R5", "LH_C2R5", "LH_C1R5", "LH_T1", "LH_T2", "LH_T3", "RH_T3", "RH_T2", "RH_T1", "RH_C1R5", "RH_C2R5", "RH_C3R5", "RH_C4R5", "RH_C5R5", "RH_C6R5", "LH_C6R6", "LH_C5R6", "LH_C4R6", "LH_C3R6", "LH_C2R6", "LH_T4", "LH_T5", "LH_T6", "RH_T6", "RH_T5", "RH_T4", "RH_C2R6", "RH_C3R6", "RH_C4R6", "RH_C5R6", "RH_C6R6" ], layouts: { 'qwerty': ['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','E','R','T','Y','U','I','O','P','\\','Esc','A','S','D','F','G','H','J','K','L',';','\'','`','Z','X','C','V','B','LShift','LCtrl','Lower','LGUI','RCtrl','RShift','N','M',',','.','/','PgUp','Magic','Home','End','Left','Right','Backsp','Delete','LAlt','RAlt','Enter','Space','Up','Down','[',']','PgDn'], 'colemak-dh': ['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','F','P','B','J','L','U','Y',';','\\','Esc','A','R','S','T','G','M','N','E','I','O','\'','`','Z','X','C','D','V','LShift','LCtrl','Lower','LGUI','RCtrl','RShift','K','H',',','.','/','PgUp','Magic','Home','End','Left','Right','Backsp','Delete','LAlt','RAlt','Enter','Space','Up','Down','[',']','PgDn'], 'dvorak': ['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','=','1','2','3','4','5','6','7','8','9','0','-','Tab','\'',',','.','P','Y','F','G','C','R','L','/','Esc','A','O','E','U','I','D','H','T','N','S','\\','`',';','Q','J','K','X','LShift','LCtrl','Lower','LGUI','RCtrl','RShift','B','M','W','V','Z','PgUp','Magic','Home','End','Left','Right','Backsp','Delete','LAlt','RAlt','Enter','Space','Up','Down','[',']','PgDn'] } },
+        go60: { name: "MoErgo Go60", geo: [ { "x": 0, "y": 0.9 }, { "x": 1, "y": 0.9 }, { "x": 2, "y": 0.25 }, { "x": 3, "y": 0 }, { "x": 4, "y": 0.15 }, { "x": 5, "y": 0.25 }, { "x": 11, "y": 0.25 }, { "x": 12, "y": 0.15 }, { "x": 13, "y": 0 }, { "x": 14, "y": 0.25 }, { "x": 15, "y": 0.9 }, { "x": 16, "y": 0.9 }, { "x": 0, "y": 1.9 }, { "x": 1, "y": 1.9 }, { "x": 2, "y": 1.25 }, { "x": 3, "y": 1 }, { "x": 4, "y": 1.15 }, { "x": 5, "y": 1.25 }, { "x": 11, "y": 1.25 }, { "x": 12, "y": 1.15 }, { "x": 13, "y": 1 }, { "x": 14, "y": 1.25 }, { "x": 15, "y": 1.9 }, { "x": 16, "y": 1.9 }, { "x": 0, "y": 2.9 }, { "x": 1, "y": 2.9 }, { "x": 2, "y": 2.25 }, { "x": 3, "y": 2 }, { "x": 4, "y": 2.15 }, { "x": 5, "y": 2.25 }, { "x": 11, "y": 2.25 }, { "x": 12, "y": 2.15 }, { "x": 13, "y": 2 }, { "x": 14, "y": 2.25 }, { "x": 15, "y": 2.9 }, { "x": 16, "y": 2.9 }, { "x": 0, "y": 3.9 }, { "x": 1, "y": 3.9 }, { "x": 2, "y": 3.25 }, { "x": 3, "y": 3 }, { "x": 4, "y": 3.15 }, { "x": 5, "y": 3.25 }, { "x": 11, "y": 3.25 }, { "x": 12, "y": 3.15 }, { "x": 13, "y": 3 }, { "x": 14, "y": 3.25 }, { "x": 15, "y": 3.9 }, { "x": 16, "y": 3.9 }, { "x": 2, "y": 4.25 }, { "x": 3, "y": 4 }, { "x": 4, "y": 4.15 }, { "x": 12, "y": 4.15 }, { "x": 13, "y": 4 }, { "x": 14, "y": 4.25 }, { "x": 4, "y": 4.25, "r": 15, "rx": 4.5, "ry": 9 }, { "x": 4, "y": 4.25, "r": 30, "rx": 4.5, "ry": 9 }, { "x": 4, "y": 4.25, "r": 45, "rx": 4.5, "ry": 9 }, { "x": 12, "y": 4.25, "r": -45, "rx": 12.5, "ry": 9 }, { "x": 12, "y": 4.25, "r": -30, "rx": 12.5, "ry": 9 }, { "x": 12, "y": 4.25, "r": -15, "rx": 12.5, "ry": 9 } ], pos: [ "LH_C6R1", "LH_C5R1", "LH_C4R1", "LH_C3R1", "LH_C2R1", "LH_C1R1", "RH_C1R1", "RH_C2R1", "RH_C3R1", "RH_C4R1", "RH_C5R1", "RH_C6R1", "LH_C6R2", "LH_C5R2", "LH_C4R2", "LH_C3R2", "LH_C2R2", "LH_C1R2", "RH_C1R2", "RH_C2R2", "RH_C3R2", "RH_C4R2", "RH_C5R2", "RH_C6R2", "LH_C6R3", "LH_C5R3", "LH_C4R3", "LH_C3R3", "LH_C2R3", "LH_C1R3", "RH_C1R3", "RH_C2R3", "RH_C3R3", "RH_C4R3", "RH_C5R3", "RH_C6R3", "LH_C6R4", "LH_C5R4", "LH_C4R4", "LH_C3R4", "LH_C2R4", "LH_C1R4", "RH_C1R4", "RH_C2R4", "RH_C3R4", "RH_C4R4", "RH_C5R4", "RH_C6R4", "LH_C4R5", "LH_C3R5", "LH_C2R5", "RH_C2R5", "RH_C3R5", "RH_C4R5", "LH_T1", "LH_T2", "LH_T3", "RH_T3", "RH_T2", "RH_T1" ], layouts: { 'qwerty': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','E','R','T','Y','U','I','O','P','\\','Esc','A','S','D','F','G','H','J','K','L',';','\'','`','Z','X','C','V','B','N','M',',','.','/','PgUp','LCtrl','LAlt','LGUI','RGUI','RAlt','RCtrl','Backsp','Delete','LShift','RShift','Enter','Space'], 'colemak-dh': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','F','P','B','J','L','U','Y',';','\\','Esc','A','R','S','T','G','M','N','E','I','O','\'','`','Z','X','C','D','V','K','H',',','.','/','PgUp','LCtrl','LAlt','LGUI','RGUI','RAlt','RCtrl','Backsp','Delete','LShift','RShift','Enter','Space'], 'dvorak': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','\'',',','.','P','Y','F','G','C','R','L','/','Esc','A','O','E','U','I','D','H','T','N','S','\\','`',';','Q','J','K','X','B','M','W','V','Z','PgUp','LCtrl','LAlt','LGUI','RGUI','RAlt','RCtrl','Backsp','Delete','LShift','RShift','Enter','Space'] } },
+        corne: { name: "Corne (42-key)", geo: [ {"x": 0, "y": 0.375}, {"x": 1, "y": 0.375}, {"x": 2, "y": 0.125}, {"x": 3, "y": 0}, {"x": 4, "y": 0.125}, {"x": 5, "y": 0.25}, {"x": 9, "y": 0.25}, {"x": 10, "y": 0.125}, {"x": 11, "y": 0}, {"x": 12, "y": 0.125}, {"x": 13, "y": 0.375}, {"x": 14, "y": 0.375}, {"x": 0, "y": 1.375}, {"x": 1, "y": 1.375}, {"x": 2, "y": 1.125}, {"x": 3, "y": 1}, {"x": 4, "y": 1.125}, {"x": 5, "y": 1.25}, {"x": 9, "y": 1.25}, {"x": 10, "y": 1.125}, {"x": 11, "y": 1}, {"x": 12, "y": 1.125}, {"x": 13, "y": 1.375}, {"x": 14, "y": 1.375}, {"x": 0, "y": 2.375}, {"x": 1, "y": 2.375}, {"x": 2, "y": 2.125}, {"x": 3, "y": 2}, {"x": 4, "y": 2.125}, {"x": 5, "y": 2.25}, {"x": 9, "y": 2.25}, {"x": 10, "y": 2.125}, {"x": 11, "y": 2}, {"x": 12, "y": 2.125}, {"x": 13, "y": 2.375}, {"x": 14, "y": 2.375}, {"x": 3.5, "y": 3.158}, {"x": 4.6, "y": 3.305, "r": 15, "rx": 5.1, "ry": 3.805}, {"x": 5.77, "y": 3.255, "h": 1.5, "r": 30, "rx": 6.27, "ry": 4.005}, {"x": 8.23, "y": 3.255, "h": 1.5, "r": -30, "rx": 8.73, "ry": 4.005}, {"x": 9.4, "y": 3.305, "r": -15, "rx": 9.9, "ry": 3.805}, {"x": 10.5, "y": 3.158} ], pos: [ "L_C0R0", "L_C1R0", "L_C2R0", "L_C3R0", "L_C4R0", "L_C5R0", "R_C0R0", "R_C1R0", "R_C2R0", "R_C3R0", "R_C4R0", "R_C5R0", "L_C0R1", "L_C1R1", "L_C2R1", "L_C3R1", "L_C4R1", "L_C5R1", "R_C0R1", "R_C1R1", "R_C2R1", "R_C3R1", "R_C4R1", "R_C5R1", "L_C0R2", "L_C1R2", "L_C2R2", "L_C3R2", "L_C4R2", "L_C5R2", "R_C0R2", "R_C1R2", "R_C2R2", "R_C3R2", "R_C4R2", "R_C5R2", "L_T1", "L_T2", "L_T3", "R_T1", "R_T2", "R_T3" ], layouts: { 'qwerty': ['Tab','Q','W','E','R','T','Y','U','I','O','P','Backsp','LCtrl','A','S','D','F','G','H','J','K','L',';','\'','LShift','Z','X','C','V','B','N','M',',','.','/','Esc','LGUI','Lower','Space','Enter','Raise','RAlt'], 'colemak-dh': ['Tab','Q','W','F','P','B','J','L','U','Y',';','Backsp','LCtrl','A','R','S','T','G','M','N','E','I','O','\'','LShift','Z','X','C','D','V','K','H',',','.','/','Esc','LGUI','Lower','Space','Enter','Raise','RAlt'], 'dvorak': ['Tab','\'',',','.','P','Y','F','G','C','R','L','Backsp','LCtrl','A','O','E','U','I','D','H','T','N','S','/','LShift',';','Q','J','K','X','B','M','W','V','Z','Esc','LGUI','Lower','Space','Enter','Raise','RAlt'] } },
+        voyager: { name: "ZSA Voyager", geo: [ { "x": 0, "y": 0.8 }, { "x": 1, "y": 0.8 }, { "x": 2, "y": 0.6 }, { "x": 3, "y": 0.4 }, { "x": 4, "y": 0.7 }, { "x": 5, "y": 0.9 }, { "x": 9.5, "y": 0.9 }, { "x": 10.5, "y": 0.7 }, { "x": 11.5, "y": 0.4 }, { "x": 12.5, "y": 0.6 }, { "x": 13.5, "y": 0.8 }, { "x": 14.5, "y": 0.8 }, { "x": 0, "y": 1.8 }, { "x": 1, "y": 1.8 }, { "x": 2, "y": 1.6 }, { "x": 3, "y": 1.4 }, { "x": 4, "y": 1.7 }, { "x": 5, "y": 1.9 }, { "x": 9.5, "y": 1.9 }, { "x": 10.5, "y": 1.7 }, { "x": 11.5, "y": 1.4 }, { "x": 12.5, "y": 1.6 }, { "x": 13.5, "y": 1.8 }, { "x": 14.5, "y": 1.8 }, { "x": 0, "y": 2.8 }, { "x": 1, "y": 2.8 }, { "x": 2, "y": 2.6 }, { "x": 3, "y": 2.4 }, { "x": 4, "y": 2.7 }, { "x": 5, "y": 2.9 }, { "x": 9.5, "y": 2.9 }, { "x": 10.5, "y": 2.7 }, { "x": 11.5, "y": 2.4 }, { "x": 12.5, "y": 2.6 }, { "x": 13.5, "y": 2.8 }, { "x": 14.5, "y": 2.8 }, { "x": 0, "y": 3.8 }, { "x": 1, "y": 3.8 }, { "x": 2, "y": 3.6 }, { "x": 3, "y": 3.4 }, { "x": 4, "y": 3.7 }, { "x": 5, "y": 3.9 }, { "x": 9.5, "y": 3.9 }, { "x": 10.5, "y": 3.7 }, { "x": 11.5, "y": 3.4 }, { "x": 12.5, "y": 3.6 }, { "x": 13.5, "y": 3.8 }, { "x": 14.5, "y": 3.8 }, { "x": 3.3, "y": 4.3, "r": 30, "rx": 3.2, "ry": 8.4 }, { "x": 3.3, "y": 4.3, "r": 30, "rx": 2.5, "ry": 10.2, "h": 1.4 }, { "x": 11.2, "y": 4.3, "r": -30, "rx": 13.0, "ry": 10.2, "h": 1.4 }, { "x": 11.2, "y": 4.3, "r": -30, "rx": 12.3, "ry": 8.4 } ], pos: [ "L_C0R0", "L_C1R0", "L_C2R0", "L_C3R0", "L_C4R0", "L_C5R0", "R_C0R0", "R_C1R0", "R_C2R0", "R_C3R0", "R_C4R0", "R_C5R0", "L_C0R1", "L_C1R1", "L_C2R1", "L_C3R1", "L_C4R1", "L_C5R1", "R_C0R1", "R_C1R1", "R_C2R1", "R_C3R1", "R_C4R1", "R_C5R1", "L_C0R2", "L_C1R2", "L_C2R2", "L_C3R2", "L_C4R2", "L_C5R2", "R_C0R2", "R_C1R2", "R_C2R2", "R_C3R2", "R_C4R2", "R_C5R2", "L_C0R3", "L_C1R3", "L_C2R3", "L_C3R3", "L_C4R3", "L_C5R3", "R_C0R3", "R_C1R3", "R_C2R3", "R_C3R3", "R_C4R3", "R_C5R3", "L_T1", "L_T2", "R_T1", "R_T2" ], layouts: { 'qwerty': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','E','R','T','Y','U','I','O','P','\\','Caps','A','S','D','F','G','H','J','K','L',';','\'','LShift','Z','X','C','V','B','N','M',',','.','/','RShift','Space','Backsp','Enter','Space'], 'colemak-dh': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','Q','W','F','P','B','J','L','U','Y',';','\\','Caps','A','R','S','T','G','M','N','E','I','O','\'','LShift','Z','X','C','D','V','K','H',',','.','/','RShift','Space','Backsp','Enter','Space'], 'dvorak': ['=','1','2','3','4','5','6','7','8','9','0','-','Tab','\'',',','.','P','Y','F','G','C','R','L','/','Caps','A','O','E','U','I','D','H','T','N','S','\\','LShift',';','Q','J','K','X','B','M','W','V','Z','RShift','Space','Backsp','Enter','Space'] } }
+    };
+
+    const ZMK_EXCEPTIONS = {
+        'N1':'1', 'N2':'2', 'N3':'3', 'N4':'4', 'N5':'5', 'N6':'6', 'N7':'7', 'N8':'8', 'N9':'9', 'N0':'0',
+        'MINUS':'-', 'EQUAL':'=', 'LBKT':'[', 'RBKT':']', 'BSLH':'\\', 'SEMI':';', 'SQT':"'",
+        'COMMA':',', 'DOT':'.', 'FSLH':'/', 'SPACE':'Space', 'SPC':'Space', 'RET':'Enter', 'ENTER':'Enter',
+        'BSPC':'Backspace', 'DEL':'Delete', 'TAB':'Tab', 'ESC':'Esc', 'GRAVE':'`', 'TILDE':'~',
+        'NONE':'NONE', 'TRNS':'NONE', 'TRANS':'NONE'
+    };
+
+    /* ==========================================================================
+       STATE, CACHE, DOM
+       ========================================================================== */
+    let config = {
+        hw: 'go60', sourceKey: 'qwerty', tgt: 'default', wordCount: '25', timed: '0', mode: 'words',
+        showKb: true, homerow: false, keypress: true, hints: true,
+        mirror: false, sound: false, debug: false, 
+        sourceJsonMap: null, targetJsonMap: null, draggedMap: null
+    };
+
+    let state = {
+        typed: "", sample: "",
+        isDragging: false, dragSourcePos: null, currentMap: {}, sourceMap: {},
+        testStarted: false, testCompleted: false, startTime: null, mistakes: 0,
+        mistakeChars: {}, mistakeWords: new Set(), practiceTargetChars: {},
+        wpmSnapshots: [], currentStreak: 0, bestStreak: 0, fingerHits: {},
+        timerSeconds: 0, timerInterval: null, timerRemaining: 0, tabActive: false, setupOpen: false
+    };
+
+    const DOM = {};
+    function cacheDOM() {
+        Object.assign(DOM, {
+            overlay: document.getElementById('startOverlay'),
+            mainHeader: document.getElementById('mainHeader'),
+            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'), 
+            wordCountSelect: document.getElementById('wordCountSelect'), timedSelect: document.getElementById('timedSelect'),
+            jsonStatus: document.getElementById('jsonStatus'),
+            newsBtn: document.getElementById('newsBtn'), wordsBtn: document.getElementById('wordsBtn'),
+            myTextBtn: document.getElementById('myTextBtn'), textModal: document.getElementById('textModal'),
+            customTextInput: document.getElementById('customTextInput'), keyboardSvg: document.getElementById('keyboardSvg'),
+            sampleContainer: document.getElementById('sampleContainer'), textWrapper: document.getElementById('textWrapper'), sampleDisplay: document.getElementById('sampleDisplay'),
+            caret: document.getElementById('caret'), dragHint: document.getElementById('dragHint'),
+            progressIndicator: document.getElementById('progressIndicator'), debugArea: document.getElementById('debugArea'),
+            timerDisplay: document.getElementById('timerDisplay'), streakDisplay: document.getElementById('streakDisplay'),
+            streakCount: document.getElementById('streakCount'), statsContainer: document.getElementById('statsContainer'),
+            statWpm: document.getElementById('statWpm'), statAcc: document.getElementById('statAcc'),
+            statTime: document.getElementById('statTime'), statWords: document.getElementById('statWords'),
+            fingerStats: document.getElementById('fingerStats'), wpmSparkline: document.getElementById('wpmSparkline'), 
+            historyInfo: document.getElementById('historyInfo'), mistakeInfo: document.getElementById('mistakeInfo'), 
+            mistakeHint: document.getElementById('mistakeHint'), dragGhost: document.getElementById('dragGhost'), 
+            ghostText: document.getElementById('ghostText'), modeButtons: document.querySelectorAll('#modeButtons .mt-btn'),
+            settingsMenu: document.getElementById('settingsMenu'), toastMsg: document.getElementById('toastMsg'),
+            statTestType: document.getElementById('statTestType'), statStreak: document.getElementById('statStreak'),
+            typingWrapper: document.getElementById('typingWrapper'), keyboardContainer: document.getElementById('keyboardContainer'),
+            bestScoresList: document.getElementById('bestScoresList'), bestScoresContainer: document.getElementById('bestScoresContainer'),
+            tabRestartOverlay: document.getElementById('tabRestartOverlay')
+        });
+    }
+
+    let blinkTimeout, audioCtx = null, snapshotInterval = null;
+
+    /* ==========================================================================
+       STORAGE & CONFIGURATION
+       ========================================================================== */
+    function loadConfig() {
+        const saved = localStorage.getItem('moosytype_cfg');
+        if (saved) config = { ...config, ...JSON.parse(saved) };
+        
+        DOM.hwSelect.value = config.hw;
+
+        if (config.sourceJsonMap && !Array.from(DOM.sourceSelect.options).find(opt => opt.value === 'custom_json')) {
+            DOM.sourceSelect.add(new Option('Custom JSON', 'custom_json'));
+        }
+        if (config.targetJsonMap && !Array.from(DOM.targetSelect.options).find(opt => opt.value === 'custom_json')) {
+            DOM.targetSelect.add(new Option('Custom JSON', 'custom_json'));
+        }
+        if (config.draggedMap && !Array.from(DOM.targetSelect.options).find(opt => opt.value === 'custom_dragged')) {
+            DOM.targetSelect.add(new Option('Custom (Dragged)', 'custom_dragged'));
+        }
+
+        DOM.sourceSelect.value = config.sourceKey;
+        DOM.targetSelect.value = config.tgt;
+        DOM.wordCountSelect.value = config.wordCount;
+        DOM.timedSelect.value = config.timed;
+
+        syncToggleUI('showKb', config.showKb);
+        syncToggleUI('homerow', config.homerow);
+        syncToggleUI('keypress', config.keypress);
+        syncToggleUI('hints', config.hints);
+        syncToggleUI('mirror', config.mirror);
+        syncToggleUI('sound', config.sound);
+        syncToggleUI('debug', config.debug);
+
+        renderBestScores();
+    }
+
+    function saveConfig() { localStorage.setItem('moosytype_cfg', JSON.stringify(config)); }
+
+    function setPref(key, val) {
+        config[key] = val; syncToggleUI(key, val); saveConfig();
+
+        if (key === 'showKb') {
+            DOM.keyboardContainer.style.display = config.showKb && !state.setupOpen ? 'flex' : 'none';
+            if (config.showKb) initKeyboard();
+        } else if (['hw', 'tgt', 'sourceKey', 'mirror', 'homerow'].includes(key)) {
+            if (config.showKb) initKeyboard();
+        } else if (key === 'debug') {
+            DOM.debugArea.style.display = (config.debug && !state.testCompleted && !state.setupOpen) ? 'block' : 'none';
+        } else if (key === 'hints') {
+            highlightExpected();
+        }
+    }
+
+    function syncToggleUI(key, val) {
+        let onBtn = document.getElementById(`tgl-${key}-on`);
+        let offBtn = document.getElementById(`tgl-${key}-off`);
+        if (onBtn && offBtn) { onBtn.classList.toggle('active', val); offBtn.classList.toggle('active', !val); }
+    }
+
+    function clearAllData() {
+        if (confirm("Are you sure you want to clear all settings and history?")) {
+            localStorage.removeItem('moosytype_cfg');
+            localStorage.removeItem('moosy_history');
+            localStorage.removeItem('moosytype_ver');
+            location.reload();
+        }
+    }
+
+    function startApp() {
+        if (DOM.overlay) { DOM.overlay.style.opacity = '0'; window.focus(); setTimeout(() => DOM.overlay.style.display = 'none', 200); }
+    }
+
+    function showToast(msg, isError = false) {
+        DOM.toastMsg.innerText = msg; DOM.toastMsg.className = 'toast show' + (isError ? ' error' : '');
+        setTimeout(() => DOM.toastMsg.classList.remove('show'), 3000);
+    }
+
+    function handleLogoClick() {
+        if (state.setupOpen) toggleSettings();
+        else restartCurrentMode();
+    }
+
+    function toggleSettings() {
+        state.setupOpen = !state.setupOpen;
+        DOM.settingsMenu.style.display = state.setupOpen ? 'flex' : 'none';
+        
+        const displayType = state.setupOpen ? 'none' : 'block';
+        DOM.sampleContainer.style.display = displayType;
+        DOM.progressIndicator.style.display = displayType;
+        if (DOM.caret) DOM.caret.style.display = displayType;
+        
+        // Hide Keyboard in setup
+        DOM.keyboardContainer.style.display = (state.setupOpen || !config.showKb) ? 'none' : 'flex';
+        
+        if (state.setupOpen) {
+            DOM.streakDisplay.style.display = 'none';
+            DOM.timerDisplay.style.display = 'none';
+            DOM.statsContainer.style.display = 'none';
+            DOM.debugArea.style.display = 'none';
+        } else {
+            if (state.testCompleted) {
+                DOM.statsContainer.style.display = 'block';
+            } else {
+                DOM.streakDisplay.style.display = 'block';
+                if (parseInt(config.timed) > 0) DOM.timerDisplay.style.display = 'block';
+                if (config.debug) DOM.debugArea.style.display = 'block';
+            }
+            window.focus();
+            if (config.showKb) initKeyboard();
+        }
+    }
+
+    function playErrorSound() {
+        if (!config.sound) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.value = 220;
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    // --- JSON Parsing (LayerForge ZMK AST Engine) ---
+    function handleJsonUpload(e, type) {
+        const file = e.target.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => { parseZMKJson(ev.target.result, type); }; reader.readAsText(file); e.target.value = '';
+    }
+
+    function extractZMKLabel(bind) {
+        if (!bind) return 'NONE';
+        let flatArgs = [];
+        const MOD_MAP = {
+            'LC':'ctrl', 'LCTRL':'ctrl', 'LCTL':'ctrl', 'RC':'ctrl', 'RCTRL':'ctrl', 'RCTL':'ctrl',
+            'LS':'shift', 'LSHIFT':'shift', 'LSFT':'shift', 'RS':'shift', 'RSHIFT':'shift', 'RSFT':'shift',
+            'LA':'alt', 'LALT':'alt', 'RA':'alt', 'RALT':'alt', 'LOPT':'alt', 'ROPT':'alt',
+            'LG':'meta', 'LGUI':'meta', 'RG':'meta', 'RGUI':'meta', 'LMETA':'meta', 'RMETA':'meta', 'LCMD':'meta', 'RCMD':'meta', 'LMAC':'meta', 'RMAC':'meta', 'WIN':'meta', 'MAC':'meta', 'CMD':'meta'
+        };
+
+        const walkAST = (node) => {
+            if (typeof node === 'object' && node !== null) {
+                let v = String(node.value || node.behavior || node.command || '').toUpperCase();
+                let tokens = v.replace(/^&/, '').split(/\s+/);
+                tokens.forEach(tok => {
+                    let match = tok.match(/^([A-Z_]+)\((.*?)\)$/);
+                    if (match) flatArgs.push(match[2]);
+                    else if (tok !== '' && !node.behavior && !MOD_MAP[tok]) flatArgs.push(tok);
+                });
+                if (node.params) node.params.forEach(walkAST);
+            }
+        };
+
+        if (typeof bind === 'object') {
+            if (bind.decoration && bind.decoration.label) return String(bind.decoration.label);
+            if (bind.label) return String(bind.label);
+            walkAST(bind);
+        } else {
+            let str = String(bind).trim().toUpperCase();
+            let parts = str.split(/\s+/);
+            parts.slice(1).forEach(p => {
+                let match = p.match(/^([A-Z_]+)\((.*?)\)$/);
+                if (match) flatArgs.push(match[2]);
+                else if (!MOD_MAP[p]) flatArgs.push(p);
+            });
+            if(flatArgs.length === 0) flatArgs.push(parts[0].replace(/^&/, ''));
+        }
+
+        let keycode = flatArgs.length > 0 ? flatArgs[flatArgs.length - 1] : 'NONE';
+        return String(keycode).toUpperCase().replace('KP_', '');
+    }
+
+    function parseZMKJson(jsonString, type) {
+        let newMap = {};
+        let hw = config.hw;
+        try {
+            const data = JSON.parse(jsonString);
+            if (data && data.keyboard) {
+                const kb = String(data.keyboard).toLowerCase();
+                ['glove80','go60','corne','voyager'].forEach(k => { if(kb.includes(k)) hw = k; });
+            }
+            
+            let firstLayer = null;
+            if (data && data.layers && data.layers.length > 0) {
+                firstLayer = data.layers[0];
+            } else if (Array.isArray(data) && data.length > 0) {
+                firstLayer = data[0];
+            } else if (data && data.bindings) {
+                firstLayer = data;
+            }
+            
+            if (!firstLayer) throw new Error("Could not find layer data");
+            
+            let bindings = Array.isArray(firstLayer) ? firstLayer : (firstLayer.bindings || firstLayer.keys || []);
+            if (!Array.isArray(bindings) || bindings.length === 0) {
+                if (data.keys && Array.isArray(data.keys)) bindings = data.keys;
+                else throw new Error("Layer has no bindings");
+            }
+
+            const limit = HARDWARE[hw].pos.length;
+            
+            for(let i=0; i<limit; i++) {
+                let bind = bindings[i];
+                let label = extractZMKLabel(bind);
+                label = ZMK_EXCEPTIONS[label] || label;
+                newMap[HARDWARE[hw].pos[i]] = label;
+            }
+        } catch(err) { 
+            console.error("JSON Parse Error:", err); 
+            showToast("Error parsing ZMK JSON.", true); 
+            return;
+        }
+
+        config.hw = hw; DOM.hwSelect.value = hw;
+        if (type === 'source') {
+            config.sourceJsonMap = newMap;
+            if(!Array.from(DOM.sourceSelect.options).find(opt => opt.value === 'custom_json')) DOM.sourceSelect.add(new Option('Custom JSON', 'custom_json'));
+            DOM.sourceSelect.value = 'custom_json'; config.sourceKey = 'custom_json';
+        } else {
+            config.targetJsonMap = newMap;
+            if(!Array.from(DOM.targetSelect.options).find(opt => opt.value === 'custom_json')) DOM.targetSelect.add(new Option('Custom JSON', 'custom_json'));
+            DOM.targetSelect.value = 'custom_json'; config.tgt = 'custom_json';
+        }
+        
+        saveConfig();
+        state.currentMap = buildMap(config.hw, config.tgt, 'target');
+        state.sourceMap = buildMap(config.hw, config.sourceKey, 'source');
+        if (config.showKb && !state.setupOpen) initKeyboard(); 
+        showToast(`ZMK JSON loaded for ${type}!`);
+    }
+
+    function isHomerow(hw, pos) {
+        if(hw === 'ansi60') return ['K21','K22','K23','K24','K27','K28','K29','K2A'].includes(pos);
+        if(hw === 'glove80') return ['LH_C5R4','LH_C4R4','LH_C3R4','LH_C2R4','RH_C2R4','RH_C3R4','RH_C4R4','RH_C5R4'].includes(pos);
+        if(hw === 'go60') return ['LH_C5R3','LH_C4R3','LH_C3R3','LH_C2R3','RH_C2R3','RH_C3R3','RH_C4R3','RH_C5R3'].includes(pos);
+        if(hw === 'corne' || hw === 'voyager') return ['L_C1R1','L_C2R1','L_C3R1','L_C4R1','R_C1R1','R_C2R1','R_C3R1','R_C4R1'].includes(pos);
+        return false;
+    }
+
+    function buildMap(hw, layoutName, type) {
+        if (type === 'target' && layoutName === 'default') {
+            layoutName = config.sourceKey; 
+            if (layoutName === 'custom_json') return config.sourceJsonMap || {};
+        }
+        
+        if (layoutName === 'custom_json') return type === 'source' ? (config.sourceJsonMap || {}) : (config.targetJsonMap || {});
+        if (layoutName === 'custom_dragged' && type === 'target') return config.draggedMap || {};
+        
+        const map = {}; const posArray = HARDWARE[hw].pos;
+        const layoutArray = HARDWARE[hw].layouts[layoutName] || HARDWARE[hw].layouts['qwerty'];
+        posArray.forEach((p, i) => map[p] = layoutArray[i]); return map;
+    }
+
+    function getMirroredMap(map) {
+        let mirrored = {};
+        Object.keys(map).forEach(pos => {
+            let mirrorPos = pos;
+            if (pos.startsWith('L_')) mirrorPos = pos.replace('L_', 'R_');
+            else if (pos.startsWith('R_')) mirrorPos = pos.replace('R_', 'L_');
+            else if (pos.startsWith('LH_')) mirrorPos = pos.replace('LH_', 'RH_');
+            else if (pos.startsWith('RH_')) mirrorPos = pos.replace('RH_', 'LH_');
+            mirrored[map[mirrorPos] !== undefined ? mirrorPos : pos] = map[pos];
+        });
+        return mirrored;
+    }
+
+    function initKeyboard() {
+        state.currentMap = buildMap(config.hw, config.tgt, 'target');
+        state.sourceMap = buildMap(config.hw, config.sourceKey, 'source');
+
+        if (!config.showKb || state.setupOpen) return;
+        DOM.keyboardSvg.innerHTML = '';
+        const hw = config.hw; const geo = HARDWARE[hw].geo; const posArray = HARDWARE[hw].pos;
+        const U = 56; 
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+        function updateBounds(px, py, cx, cy, angle) {
+            if (!angle) {
+                minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                minY = Math.min(minY, py); maxY = Math.max(maxY, py); return;
+            }
+            const rad = angle * (Math.PI / 180);
+            const cos = Math.cos(rad), sin = Math.sin(rad);
+            const nx = cos * (px - cx) - sin * (py - cy) + cx;
+            const ny = sin * (px - cx) + cos * (py - cy) + cy;
+            minX = Math.min(minX, nx); maxX = Math.max(maxX, nx);
+            minY = Math.min(minY, ny); maxY = Math.max(maxY, ny);
+        }
+
+        geo.forEach((k, i) => {
+            const p = posArray[i];
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("id", `key-${p}`); 
+            
+            let classNames = "key-group";
+            if (config.homerow && isHomerow(hw, p)) classNames += " homerow";
+            g.setAttribute("class", classNames);
+            
+            const x = (k.x || 0) * U; const y = (k.y || 0) * U;
+            const w = (k.w || 1) * U - 6; const h = (k.h || 1) * U - 6; 
+            
+            let cx = x, cy = y, angle = 0;
+            if (k.r) {
+                cx = (k.rx !== undefined ? k.rx : k.x) * U; 
+                cy = (k.ry !== undefined ? k.ry : k.y) * U;
+                angle = k.r;
+                g.setAttribute("transform", `rotate(${k.r}, ${cx}, ${cy}) translate(${x}, ${y})`);
+            } else {
+                g.setAttribute("transform", `translate(${x}, ${y})`);
+            }
+            
+            updateBounds(x, y, cx, cy, angle);
+            updateBounds(x + w, y, cx, cy, angle);
+            updateBounds(x, y + h, cx, cy, angle);
+            updateBounds(x + w, y + h, cx, cy, angle);
+
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("class", "key-rect"); rect.setAttribute("width", w); rect.setAttribute("height", h);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("class", "key-text"); text.setAttribute("x", w / 2); text.setAttribute("y", h / 2 + 1);
+            
+            g.onmousedown = (e) => handleDragStart(e, p);
+            g.appendChild(rect); g.appendChild(text); DOM.keyboardSvg.appendChild(g);
+        });
+        
+        const pad = 12;
+        const width = maxX - minX;
+        const height = maxY - minY;
+        
+        DOM.keyboardSvg.setAttribute("viewBox", `${minX - pad} ${minY - pad} ${width + pad*2} ${height + pad*2}`);
+        DOM.keyboardSvg.style.maxWidth = (width + pad*2) + "px";
+
+        renderKeyboard();
+    }
+
+    function renderKeyboard() {
+        if (!config.showKb || state.setupOpen) return;
+        const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const posArray = HARDWARE[config.hw].pos;
+        
+        posArray.forEach(p => {
+            const label = workingMap[p]; if (!label) return;
+            const g = document.getElementById(`key-${p}`); if (!g) return;
+            const rect = g.querySelector('rect'); const text = g.querySelector('text');
+            
+            const isHidden = label === "⠀" || label === "ø"; 
+            const isBlank = label === "NONE" || label === "TRANS" || label === "TRNS" || isHidden;
+            
+            rect.style.opacity = isHidden ? "0" : "1";
+            let displayLabel = (label === "SPACE" || label === " ") ? "Space" : (isBlank ? "" : label);
+            text.textContent = displayLabel;
+            text.setAttribute("font-size", displayLabel.length > 2 ? "12px" : (displayLabel.length > 1 ? "14px" : "18px"));
+        });
+        highlightExpected();
+    }
+
+    function getFingerName(pos) {
+        if (pos.includes('T') || pos === 'K43' || pos === 'K44' || pos === 'Space') return pos.includes('L') ? 'L thumb' : 'R thumb'; 
+        const isLeft = pos.includes('L') || (pos.startsWith('K') && parseInt(pos.charAt(2), 16) < 6);
+        const hand = isLeft ? 'L' : 'R';
+        let colMatch = pos.match(/C(\d)/);
+        if (colMatch) {
+            let col = parseInt(colMatch[1]);
+            if (pos.startsWith('LH_') || pos.startsWith('RH_')) {
+                if (col <= 2) return hand + ' pinky'; if (col === 3) return hand + ' ring';
+                if (col === 4) return hand + ' mid'; return hand + ' index'; 
+            }
+            if (pos.startsWith('L_') || pos.startsWith('R_')) {
+                if (col <= 1) return hand + ' pinky'; if (col === 2) return hand + ' ring';
+                if (col === 3) return hand + ' mid'; return hand + ' index'; 
+            }
+        }
+        if (pos.startsWith('K')) {
+            let c = parseInt(pos.charAt(2), 16);
+            if (isLeft) {
+                if (c <= 1) return 'L pinky'; if (c === 2) return 'L ring';
+                if (c === 3) return 'L mid'; return 'L index';
+            } else {
+                if (c >= 11) return 'R pinky'; if (c === 10) return 'R ring';
+                if (c === 9) return 'R mid'; return 'R index';
+            }
+        }
+        return 'other';
+    }
+
+    function handleDragStart(e, pos) {
+        if (DOM.typingWrapper.classList.contains('stats-active') || state.setupOpen) return;
+        const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const label = workingMap[pos];
+        if(label === "⠀" || label === "ø") return;
+        state.isDragging = true; state.dragSourcePos = pos;
+        let displayLabel = label.toUpperCase() === "SPACE" ? "Space" : label;
+        DOM.ghostText.textContent = displayLabel;
+        DOM.dragGhost.style.display = 'block'; updateGhostPos(e);
+    }
+    function updateGhostPos(e) { DOM.dragGhost.style.left = (e.clientX - 27) + 'px'; DOM.dragGhost.style.top = (e.clientY - 27) + 'px'; }
+
+    function highlightExpected() {
+        if (!config.showKb || state.setupOpen) return;
+        document.querySelectorAll('.key-group').forEach(g => g.classList.remove('expected'));
+        if (!config.hints) return;
+        const nextChar = state.sample[state.typed.length]?.toUpperCase() || "";
+        const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const pos = Object.keys(workingMap).find(p => {
+            const val = (workingMap[p] || "").toUpperCase(); 
+            return (nextChar === " " && val === "SPACE") || (val === nextChar);
+        });
+        if (pos) { const group = document.getElementById(`key-${pos}`); if (group) group.classList.add('expected'); }
+    }
+
+    function setActiveModeBtn(btnId) {
+        DOM.modeButtons.forEach(btn => btn.classList.remove('active'));
+        document.getElementById(btnId).classList.add('active');
+    }
+
+    function initSampleTextDOM() {
+        DOM.sampleDisplay.innerHTML = state.sample.split('').map((char) => `<span>${char}</span>`).join('');
+        DOM.textSpans = DOM.sampleDisplay.querySelectorAll('span'); updateTextUI();
+    }
+
+    function updateTextUI() {
+        const typedLen = state.typed.length;
+        if (typedLen > 0 && config.showKb && !state.setupOpen) DOM.dragHint.classList.add('hidden-hint'); 
+        else if (config.showKb && !state.setupOpen) DOM.dragHint.classList.remove('hidden-hint');
+
+        if (state.sample.length > 0) {
+            const totalWords = state.sample.split(/\s+/).length; let currentWord = state.typed.split(/\s+/).length;
+            if (typedLen === state.sample.length) currentWord = totalWords; else if (typedLen === 0) currentWord = 1;
+            DOM.progressIndicator.innerText = `${currentWord}/${totalWords}`;
+        } else { DOM.progressIndicator.innerText = "0/0"; }
+
+        DOM.textSpans.forEach((span, i) => {
+            span.removeAttribute('id');
+            if (i < typedLen) span.className = state.typed[i] === state.sample[i] ? 'correct-text' : 'error-char';
+            else if (i === typedLen) { span.className = ''; span.id = 'active-char'; }
+            else span.className = '';
+        });
+
+        const activeChar = document.getElementById('active-char');
+        if (activeChar && DOM.caret) {
+            DOM.caret.classList.remove('blinking');
+            DOM.caret.style.display = state.testCompleted || state.setupOpen ? 'none' : 'block';
+            DOM.caret.style.left = activeChar.offsetLeft + "px"; DOM.caret.style.top = activeChar.offsetTop + "px";
+            clearTimeout(blinkTimeout); blinkTimeout = setTimeout(() => DOM.caret.classList.add('blinking'), 500);
+            
+            const lineHeight = 51.2;
+            const currentLine = Math.round(activeChar.offsetTop / lineHeight);
+            if (currentLine > 1) {
+                const shift = (currentLine - 1) * lineHeight;
+                DOM.textWrapper.style.transform = `translateY(-${shift}px)`;
+            } else {
+                DOM.textWrapper.style.transform = `translateY(0px)`;
+            }
+        }
+    }
+
+    function getCurrentWord(text, pos) {
+        let start = pos, end = pos; while (start > 0 && text[start - 1] !== ' ') start--; while (end < text.length && text[end] !== ' ') end++;
+        const w = text.slice(start, end).toLowerCase(); return w.length > 0 ? w : null;
+    }
+
+    function setupNewTest(text, isRaw = false) {
+        if (!isRaw) {
+            let cleanText = (text || "").toLowerCase().replace(/\s+/g, ' ').trim();
+            if(cleanText.endsWith(' ')) cleanText = cleanText.slice(0, -1); state.sample = cleanText;
+        } else state.sample = text || "";
+        
+        state.typed = ""; state.testStarted = false; state.testCompleted = false; state.startTime = null; 
+        state.mistakes = 0; state.mistakeChars = {}; state.mistakeWords = new Set();
+        state.wpmSnapshots = []; state.currentStreak = 0; state.bestStreak = 0; state.fingerHits = {};
+        
+        stopTimer(); stopSnapshots(); DOM.streakDisplay.style.display = 'none'; DOM.streakCount.textContent = '0';
+        DOM.statsContainer.style.display = 'none'; DOM.mistakeInfo.innerHTML = ''; DOM.mistakeHint.innerHTML = '';
+        DOM.fingerStats.innerHTML = ''; DOM.wpmSparkline.innerHTML = ''; DOM.historyInfo.innerHTML = '';
+        
+        DOM.typingWrapper.classList.remove('stats-active');
+        document.querySelectorAll('.key-rect').forEach(rect => {
+            rect.style.fill = ''; 
+            rect.classList.remove('active', 'active-error');
+        }); 
+        
+        DOM.sampleContainer.style.display = state.setupOpen ? 'none' : 'block'; 
+        DOM.progressIndicator.style.display = state.setupOpen ? 'none' : 'block';
+        if (DOM.caret) DOM.caret.style.display = state.setupOpen ? 'none' : 'block';
+        if (config.debug) DOM.debugArea.style.display = state.setupOpen ? 'none' : 'block';
+
+        if (DOM.textWrapper) DOM.textWrapper.style.transform = `translateY(0px)`;
+        if (document.activeElement) document.activeElement.blur(); 
+        
+        DOM.mainHeader.classList.remove('typing-focus');
+        
+        initSampleTextDOM(); 
+        if (config.showKb && !state.setupOpen) initKeyboard(); 
+        highlightExpected();
+    }
+
+    function generateWords() {
+        setActiveModeBtn('wordsBtn'); config.mode = 'words'; saveConfig();
+        const count = parseInt(config.wordCount) || 25; let selected = [];
+        let shuffled = [...commonWords].sort(() => Math.random() - 0.5);
+        for(let i=0; i<count; i++) selected.push(shuffled[i % shuffled.length]); setupNewTest(selected.join(' '));
+    }
+
+    async function fetchNews() {
+        setActiveModeBtn('newsBtn'); config.mode = 'news'; saveConfig(); DOM.newsBtn.textContent = "loading...";
+        const feeds = ['https://feeds.npr.org/1001/rss.xml','https://rss.nytimes.com/services/xml/rss/nyt/World.xml'];
+        try {
+            const cacheBuster = new Date().getTime();
+            const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feeds[Math.floor(Math.random() * feeds.length)])}&t=${cacheBuster}`);
+            const data = await response.json();
+            if (data.status === 'ok' && data.items && data.items.length > 0) {
+                let text = data.items.sort(() => Math.random() - 0.5).map(item => (item.title + " " + item.description).toLowerCase().replace(/<[^>]*>/g, '').replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ')).join(' ').trim().slice(0, 2000);
+                setupNewTest(text);
+            } else throw new Error();
+        } catch (err) { setupNewTest("newsfeed unavailable please try again later"); } finally { DOM.newsBtn.textContent = "news"; }
+    }
+
+    function checkTestEnd() {
+        if (parseInt(config.timed) > 0 && state.timerRemaining > 0) {
+            const shuffled = [...commonWords].sort(() => Math.random() - 0.5); const extra = [];
+            for (let i = 0; i < 15; i++) extra.push(shuffled[i % shuffled.length]); state.sample += ' ' + extra.join(' ');
+            initSampleTextDOM(); highlightExpected(); return;
+        }
+        endTest();
+    }
+
+function endTest(earlyExit = false) {
+        state.testCompleted = true; stopSnapshots(); stopTimer(); DOM.streakDisplay.style.display = 'none';
+        if (DOM.caret) DOM.caret.style.display = 'none';
+        DOM.mainHeader.classList.remove('typing-focus');
+        
+        const timeSec = Math.max(0.1, (Date.now() - state.startTime) / 1000);
+        
+        // 1. Strict Monkeytype Word-by-Word Evaluation
+        let correctChars = 0;
+        let currentWordStart = 0;
+        
+        for (let i = 0; i <= state.sample.length; i++) {
+            // Check word boundaries based on the sample text
+            if (state.sample[i] === ' ' || i === state.sample.length) {
+                const sampleWord = state.sample.slice(currentWordStart, i);
+                const typedWord = state.typed.slice(currentWordStart, i);
+                
+                // If the user hasn't typed this far yet (e.g. timed mode ended early), stop
+                if (typedWord.length === 0) break;
+                
+                // Monkeytype rule: the word MUST match exactly
+                if (sampleWord === typedWord) {
+                    // AND the space following it MUST be a space (unless it's the very last word)
+                    const typedSpace = state.typed[i];
+                    if (i === state.sample.length || typedSpace === ' ') {
+                        correctChars += sampleWord.length + (typedSpace === ' ' ? 1 : 0);
+                    }
+                }
+                currentWordStart = i + 1; // Skip the space for the next word
+            }
+        }
+
+        // 2. Math: WPM (5 chars per word) and Accuracy
+        const totalKeystrokes = Math.max(1, state.typed.length + state.mistakes);
+        const acc = Math.max(0, Math.round(((totalKeystrokes - state.mistakes) / totalKeystrokes) * 100));
+        const wpm = Math.round((correctChars / 5) / (timeSec / 60)) || 0;
+        
+        // 3. Update UI
+        DOM.statWpm.textContent = wpm; DOM.statAcc.textContent = acc + '%'; DOM.statTime.textContent = Math.round(timeSec) + 's';
+        DOM.statWords.textContent = state.typed.trim().split(/\s+/).filter(w => w.length > 0).length;
+        DOM.statStreak.textContent = state.bestStreak;
+
+        let testTypeStr = config.mode;
+        if(config.mode === 'words') testTypeStr += ' ' + config.wordCount;
+        else if (parseInt(config.timed) > 0) testTypeStr = 'time ' + config.timed;
+        DOM.statTestType.textContent = testTypeStr;
+        
+        DOM.sampleContainer.style.display = 'none'; DOM.progressIndicator.style.display = 'none';
+        DOM.debugArea.style.display = 'none'; DOM.statsContainer.style.display = 'block';
+        DOM.typingWrapper.classList.add('stats-active');
+
+        if (config.mode !== 'mistakes' && !earlyExit) { 
+            saveResult(wpm, acc, Math.round(timeSec), testTypeStr); 
+            renderHistorySummary(); applyHeatMap(state.mistakeChars); 
+            renderBestScores();
+        } else { 
+            applyHeatMap(state.mistakeChars); renderPracticeImprovement(); 
+        }
+
+        renderSparkline(); renderFingerStats();
+
+        // Check if there are any actual mistakes left over
+        if (state.mistakes > 0) {
+            const sorted = Object.keys(state.mistakeChars).sort((a, b) => state.mistakeChars[b] - state.mistakeChars[a]);
+            let html = sorted.map(c => `<span>${c}</span>`).join('');
+            DOM.mistakeInfo.innerHTML = html; DOM.mistakeHint.innerHTML = ` · <span style="color:var(--text-color)">Enter</span> to practice mistakes`;
+        } else { 
+            DOM.mistakeInfo.innerHTML = '<span style="color:var(--correct)">Clean run!</span>'; 
+            DOM.mistakeHint.innerHTML = ` · <span style="color:var(--text-color)">Enter</span> to start next session`; 
+        }
+    }
+
+
+
+
+    /* ==========================================================================
+       PRACTICE, HISTORY & STATS
+       ========================================================================== */
+    function loadHistory() { try { return JSON.parse(localStorage.getItem('moosy_history') || '[]'); } catch { return []; } }
+    
+    function saveResult(wpm, acc, timeSec, modeStr) {
+        const history = loadHistory(); 
+        history.push({ wpm, acc, time: timeSec, mode: modeStr, date: Date.now(), chars: {...state.mistakeChars} });
+        if (history.length > 200) history.splice(0, history.length - 200); 
+        localStorage.setItem('moosy_history', JSON.stringify(history));
+    }
+    
+    function getRecentMistakeChars(n) {
+        const recent = n ? loadHistory().slice(-n) : loadHistory(); const totals = {};
+        recent.forEach(h => { if (h.chars) Object.keys(h.chars).forEach(c => { totals[c] = (totals[c] || 0) + h.chars[c]; }); }); return totals;
+    }
+
+    function renderBestScores() {
+        const history = loadHistory();
+        if (history.length === 0) {
+            DOM.bestScoresContainer.style.display = 'none';
+            return;
+        }
+        
+        DOM.bestScoresContainer.style.display = 'block';
+        const best = [...history].sort((a, b) => b.wpm - a.wpm).slice(0, 5);
+        DOM.bestScoresList.innerHTML = best.map((h, i) => {
+            const d = new Date(h.date).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+            return `
+            <div class="score-row">
+                <div class="score-wpm">${h.wpm} wpm</div>
+                <div class="score-details">
+                    <span>${h.acc}% acc</span>
+                    <span>${h.mode}</span>
+                    <span>${d}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function applyHeatMap(charData) {
+        document.querySelectorAll('.key-rect').forEach(rect => {
+            rect.style.fill = ''; 
+            rect.classList.remove('active', 'active-error'); 
+        }); 
+        
+        if (!charData || Object.keys(charData).length === 0) return;
+        
+        const maxErr = Math.max(...Object.values(charData), 1);
+        const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        HARDWARE[config.hw].pos.forEach(p => {
+            const label = workingMap[p]; if (!label || label === '⠀' || label === 'ø') return;
+            const errCount = charData[label.toLowerCase()] || 0; 
+            const rect = document.querySelector(`#key-${p} rect`);
+            if (rect && errCount > 0) {
+                const intensity = Math.min(errCount / maxErr, 1);
+                const r = Math.round(44 + intensity * (202 - 44));
+                const g = Math.round(46 + intensity * (71 - 46));
+                const b = Math.round(49 + intensity * (84 - 49));
+                rect.style.fill = `rgb(${r},${g},${b})`;
+            }
+        });
+    }
+
+    function renderHistorySummary() {
+        const history = loadHistory(); if (history.length < 1) { DOM.historyInfo.innerHTML = ''; return; }
+        const last3 = history.slice(-3);
+        let html = `Last ${last3.length} tests avg: <span>${Math.round(last3.reduce((s, h) => s + h.wpm, 0) / last3.length)} wpm</span> / <span>${Math.round(last3.reduce((s, h) => s + h.acc, 0) / last3.length)}%</span> · ${history.length} total`;
+        DOM.historyInfo.innerHTML = html;
+    }
+
+    function practiceMistakes() {
+        const mistakeKeys = Object.keys(state.mistakeChars); if (mistakeKeys.length === 0) { generateWords(); return; }
+        state.practiceTargetChars = {...state.mistakeChars}; config.mode = 'mistakes'; saveConfig();
+        const count = parseInt(config.wordCount) || 25; const missedWords = [...state.mistakeWords]; const charWeights = {...state.mistakeChars};
+        
+        const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const fingerAccuracy = {};
+        Object.keys(state.fingerHits).forEach(p => {
+            const name = getFingerName(p); if (!fingerAccuracy[name]) fingerAccuracy[name] = { correct: 0, total: 0 };
+            fingerAccuracy[name].correct += state.fingerHits[p].correct; fingerAccuracy[name].total += state.fingerHits[p].total;
+        });
+        
+        Object.keys(fingerAccuracy).forEach(finger => {
+            const d = fingerAccuracy[finger];
+            if (d.total > 0 && d.correct / d.total < 0.9) {
+                HARDWARE[config.hw].pos.forEach(p => {
+                    if (getFingerName(p) === finger) {
+                        const label = workingMap[p];
+                        if (label && label.length === 1 && label.match(/[a-z]/i)) charWeights[label.toLowerCase()] = (charWeights[label.toLowerCase()] || 0) + Math.round((1 - (d.correct / d.total)) * 5);
+                    }
+                });
+            }
+        });
+
+        let selected = [];
+        if (missedWords.length > 0) {
+            const shuffled = [...missedWords].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < Math.min(count, Math.max(Math.ceil(count / 2), missedWords.length)); i++) selected.push(shuffled[i % shuffled.length]);
+        }
+
+        if (selected.length < count) {
+            const scored = commonWords.filter(w => !state.mistakeWords.has(w)).map(word => {
+                let hits = 0; for (const ch of word) { if (charWeights[ch]) hits += charWeights[ch]; } return { word, density: hits / word.length };
+            }).filter(w => w.density > 0).sort((a, b) => b.density - a.density);
+            const topTier = scored.slice(0, Math.max((count - selected.length) * 2, 20)).sort(() => Math.random() - 0.5);
+            for (let i = 0; i < (count - selected.length) && i < topTier.length; i++) selected.push(topTier[i].word);
+        }
+
+        if (selected.length < count) {
+            const weightedChars = Object.entries(charWeights).flatMap(([c, n]) => Array(n).fill(c)); const vowels = 'aeiou';
+            while (selected.length < count) {
+                let w = '', len = 3 + Math.floor(Math.random() * 4);
+                for (let j = 0; j < len; j++) w += (j % 2 === 0) ? weightedChars[Math.floor(Math.random() * weightedChars.length)] : vowels[Math.floor(Math.random() * vowels.length)];
+                selected.push(w);
+            }
+        }
+        setupNewTest(selected.sort(() => Math.random() - 0.5).join(' '));
+    }
+
+    function renderPracticeImprovement() {
+        const chars = Object.keys(state.practiceTargetChars); if (chars.length === 0) { DOM.historyInfo.innerHTML = ''; return; }
+        const results = chars.map(ch => {
+            const occurrences = (state.sample.match(new RegExp(ch, 'gi')) || []).length; const misses = state.mistakeChars[ch] || 0;
+            return { ch, misses, occurrences, hitRate: occurrences > 0 ? Math.round((1 - misses / occurrences) * 100) : 100 };
+        }).sort((a, b) => a.hitRate - b.hitRate);
+
+        const avgHitRate = Math.round(results.reduce((s, r) => s + r.hitRate, 0) / results.length);
+        
+        let html = 'Practicing: ';
+        if (results.every(r => r.hitRate === 100)) html += '<span style="color:var(--correct)">Flawless execution!</span>';
+        else html += results.map(r => `<span style="color:${r.hitRate === 100 ? 'var(--correct)' : r.hitRate >= 80 ? '#e2b714' : 'var(--error)'}">${r.ch}</span> ${r.hitRate}%`).join('&nbsp;&nbsp;');
+
+        let msg = results.every(r => r.hitRate === 100) ? 'Nailed it! Ready to move on 🎯' : avgHitRate >= 90 ? 'Almost there, one more round!' : avgHitRate >= 70 ? 'Getting better, keep at it!' : avgHitRate >= 50 ? 'Warming up, stay with it' : 'Tough chars — keep practicing!';
+        html += ` <span style="color:var(--secondary-text);font-size:12px; margin-left:10px;">${msg}</span>`; DOM.historyInfo.innerHTML = html;
+    }
+
+    function renderFingerStats() {
+        const fingers = {};
+        Object.keys(state.fingerHits).forEach(pos => {
+            const name = getFingerName(pos); if (!fingers[name]) fingers[name] = { correct: 0, total: 0 };
+            fingers[name].correct += state.fingerHits[pos].correct; fingers[name].total += state.fingerHits[pos].total;
+        });
+        DOM.fingerStats.innerHTML = ['L pinky','L ring','L mid','L index','L thumb','R thumb','R index','R mid','R ring','R pinky'].filter(f => fingers[f]).map(f => {
+            const d = fingers[f]; const acc = d.total > 0 ? Math.round(d.correct / d.total * 100) : 100;
+            return `<div class="finger-stat"><div class="finger-name">${f}</div><div class="finger-acc" style="color:${acc >= 95 ? 'var(--correct)' : acc >= 80 ? 'var(--text-color)' : 'var(--error)'}">${acc}%</div></div>`;
+        }).join('');
+    }
+
+    function renderSparkline() {
+        const svg = DOM.wpmSparkline; svg.innerHTML = ''; const pts = state.wpmSnapshots;
+        if (pts.length < 2) { svg.style.display = 'none'; return; }
+        svg.style.display = 'block'; const w = 1000, h = 150, pad = 10, maxWpm = Math.max(...pts.map(p => p.wpm), 1);
+        
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+
+        const coords = pts.map((p, i) => ({ x: pad + (i / (pts.length - 1)) * (w - pad * 2), y: pad + (1 - p.wpm / maxWpm) * (h - pad * 2 - 20) }));
+        
+        const areaPath = `M${coords[0].x},${coords[0].y} ` + coords.map(c => `L${c.x},${c.y}`).join(' ') + ` L${coords[coords.length-1].x},${h-20} L${coords[0].x},${h-20} Z`;
+        const area = document.createElementNS('http://www.w3.org/2000/svg', 'path'); area.setAttribute('d', areaPath); area.setAttribute('class', 'sparkline-area'); svg.appendChild(area);
+        
+        const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ');
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path'); line.setAttribute('d', linePath); line.setAttribute('class', 'sparkline-line'); svg.appendChild(line);
+        
+        [0, pts.length - 1].forEach(i => {
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); dot.setAttribute('cx', coords[i].x); dot.setAttribute('cy', coords[i].y); dot.setAttribute('r', 6); dot.setAttribute('class', 'sparkline-dot'); svg.appendChild(dot);
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text'); label.setAttribute('x', coords[i].x); label.setAttribute('y', h - 4); label.setAttribute('class', 'sparkline-label'); label.setAttribute('text-anchor', i === 0 ? 'start' : 'end'); label.textContent = pts[i].wpm + ' wpm'; svg.appendChild(label);
+        });
+    }
+
+    function startSnapshots() {
+        state.wpmSnapshots = []; snapshotInterval = setInterval(() => {
+            if (!state.testStarted || state.testCompleted) return; const elapsed = (Date.now() - state.startTime) / 1000;
+            let correct = 0; for (let i = 0; i < state.typed.length; i++) { if (state.typed[i] === state.sample[i]) correct++; }
+            state.wpmSnapshots.push({ time: Math.round(elapsed), wpm: Math.round((correct / 5) / (elapsed / 60)) || 0 });
+        }, 2000);
+    }
+    function stopSnapshots() { clearInterval(snapshotInterval); }
+    function startTimer() {
+        const secs = parseInt(config.timed); if (secs <= 0) return;
+        state.timerSeconds = state.timerRemaining = secs; DOM.timerDisplay.style.display = 'block'; DOM.timerDisplay.textContent = secs + 's';
+        state.timerInterval = setInterval(() => { state.timerRemaining--; DOM.timerDisplay.textContent = state.timerRemaining + 's'; if (state.timerRemaining <= 0) { clearInterval(state.timerInterval); state.timerInterval = null; endTest(false); } }, 1000);
+    }
+    function stopTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } DOM.timerDisplay.style.display = 'none'; }
+    
+    function restartCurrentMode() {
+        if (config.mode === 'mistakes') { generateWords(); return; }
+        if (config.mode === 'words') generateWords(); else if (config.mode === 'news') fetchNews(); else setupNewTest(state.sample, config.mode === 'custom');
+    }
+    
+    function openModal() { setActiveModeBtn('myTextBtn'); DOM.textModal.style.display = 'flex'; DOM.customTextInput.focus(); }
+    function closeModal() { DOM.textModal.style.display = 'none'; }
+    function applyCustomText() { const input = DOM.customTextInput.value; if (input) { config.mode = 'custom'; saveConfig(); setupNewTest(input, true); closeModal(); } }
+
+    /* ==========================================================================
+       EVENT LISTENERS
+       ========================================================================== */
+    window.onmousemove = (e) => { if(state.isDragging) updateGhostPos(e); };
+    window.onmouseup = (e) => {
+        if (!state.isDragging) return; const targetGroup = e.target.closest('.key-group');
+        if (targetGroup) {
+            const targetPos = targetGroup.id.replace('key-', '');
+            let src = config.mirror ? mirrorMap[state.dragSourcePos] : state.dragSourcePos;
+            let trg = config.mirror ? mirrorMap[targetPos] : targetPos;
+            
+            if (config.tgt !== 'custom_dragged') {
+                config.draggedMap = { ...buildMap(config.hw, config.tgt, 'target') }; 
+                if(!Array.from(DOM.targetSelect.options).find(opt => opt.value === 'custom_dragged')) {
+                    DOM.targetSelect.add(new Option('Custom (Dragged)', 'custom_dragged'));
+                }
+                config.tgt = 'custom_dragged'; DOM.targetSelect.value = 'custom_dragged';
+            }
+            
+            let temp = config.draggedMap[src];
+            config.draggedMap[src] = config.draggedMap[trg];
+            config.draggedMap[trg] = temp;
+            
+            saveConfig();
+            state.currentMap = buildMap(config.hw, config.tgt, 'target');
+        }
+        state.isDragging = false; DOM.dragGhost.style.display = 'none'; renderKeyboard();
+    };
+
+    window.addEventListener('keydown', (e) => {
+        if (DOM.textModal.style.display === 'flex' || e.repeat) return;
+        
+        // 1. Settings Exit Interception
+        if (state.setupOpen) {
+            e.preventDefault(); 
+            if (e.key === 'Escape' || e.key === 'Enter') { toggleSettings(); }
+            return; 
+        }
+
+        // --- MATRIX TRANSLATION ENGINE ---
+        // Map Physical OS Key -> Source Matrix Pos -> Target Char
+        
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'F12' && e.key !== 'F5') {
+            e.preventDefault();
+        }
+
+        const OS_TO_ZMK = {
+            'Escape':'ESC', 'Minus':'-', 'Equal':'=', 'Backspace':'BSPC', 'Tab':'TAB',
+            'BracketLeft':'[', 'BracketRight':']', 'Backslash':'\\', 'Semicolon':';', 'Quote':'\'',
+            'Enter':'RET', 'Comma':',', 'Period':'.', 'Slash':'/', 'Space':'SPACE',
+            'ShiftLeft':'LSHFT', 'ShiftRight':'RSHFT', 'ControlLeft':'LCTRL', 'ControlRight':'RCTRL',
+            'AltLeft':'LALT', 'AltRight':'RALT', 'MetaLeft':'LGUI', 'MetaRight':'RGUI',
+            'ArrowUp':'UP', 'ArrowDown':'DOWN', 'ArrowLeft':'LEFT', 'ArrowRight':'RIGHT',
+            'Backquote':'GRAVE'
+        };
+        
+        let osKey = OS_TO_ZMK[e.code] || e.code.replace('Key', '').replace('Digit', '').toUpperCase();
+        if (e.key.length === 1) osKey = e.key.toUpperCase(); 
+
+        let mappedChar = e.key;
+        let pos = undefined;
+        const sourceMap = state.sourceMap;
+        
+        pos = Object.keys(sourceMap).find(p => {
+            let s = (sourceMap[p] || "").toUpperCase();
+            return s === osKey || s === e.key.toUpperCase() || s === OS_TO_ZMK[e.code];
+        });
+
+        const isUpperCase = (e.key === e.key.toUpperCase() && e.key !== e.key.toLowerCase());
+
+        if (pos) {
+            const workingMap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+            if (workingMap[pos] !== undefined) {
+                const rawVal = workingMap[pos].toUpperCase();
+                mappedChar = rawVal;
+                if (mappedChar === "SPACE" || mappedChar === "SPC") mappedChar = " ";
+                else if (mappedChar === "RET" || mappedChar === "ENTER") mappedChar = "Enter";
+                else if (mappedChar === "ESC" || mappedChar === "ESCAPE") mappedChar = "Escape";
+                else if (mappedChar === "BSPC" || mappedChar === "BACKSPACE") mappedChar = "Backspace";
+                else if (mappedChar === "TAB") mappedChar = "Tab";
+                else if (mappedChar.length === 1) mappedChar = isUpperCase ? mappedChar : mappedChar.toLowerCase();
+            }
+        }
+
+        if (config.debug) DOM.debugArea.innerText = `debug: OS[${e.code}] | Pos[${pos || 'none'}] | Mapped[${mappedChar}]`;
+
+        // 2. SHORTCUTS (EVALUATED USING MAPPED CHARACTERS)
+        if (mappedChar === "Tab") { 
+            e.preventDefault(); state.tabActive = true; DOM.tabRestartOverlay.classList.add('active'); return; 
+        }
+        if (state.tabActive && mappedChar === "Enter") {
+            e.preventDefault(); DOM.tabRestartOverlay.classList.remove('active'); state.tabActive = false; restartCurrentMode(); return;
+        }
+        if (mappedChar === "Escape" && state.testStarted && !state.testCompleted) { 
+            e.preventDefault(); endTest(true); return; 
+        }
+        if (state.testCompleted) { 
+            if (mappedChar === "Enter") {
+                e.preventDefault();
+                // Only trigger practice mode if actual mistakes were made
+                if (state.mistakes > 0) practiceMistakes();
+                else restartCurrentMode(); 
+            } 
+            return; 
+        }
+		
+		
+        if (mappedChar === "Backspace") { 
+            e.preventDefault(); state.typed = state.typed.slice(0, -1); updateTextUI(); highlightExpected(); return; 
+        }
+
+        // Catch blank keys from JSON (&none / &trans)
+        if (mappedChar === "NONE" || mappedChar === "TRNS" || mappedChar === "TRANS") {
+            if (pos && config.showKb && config.keypress) {
+                const rect = document.querySelector(`#key-${pos} rect`);
+                if (rect) { rect.classList.add('active'); setTimeout(() => rect.classList.remove('active'), 150); }
+            }
+            return;
+        }
+
+        // Block modifiers from scoring
+        if (mappedChar.length > 1 && mappedChar !== ' ' && mappedChar !== 'Space') {
+            if (pos && config.showKb && config.keypress) {
+                const rect = document.querySelector(`#key-${pos} rect`);
+                if (rect) { rect.classList.add('active'); setTimeout(() => rect.classList.remove('active'), 150); }
+            }
+            return;
+        }
+
+        // 3. START TEST & FOCUS FADE
+        if (!state.testStarted && mappedChar.length === 1) {
+            state.testStarted = true; state.startTime = Date.now(); startSnapshots();
+            DOM.mainHeader.classList.add('typing-focus');
+            DOM.streakDisplay.style.display = 'block'; if (parseInt(config.timed) > 0) startTimer();
+        }
+
+        // 4. CORE TYPING EVALUATOR
+        if (mappedChar.length === 1 && state.typed.length < state.sample.length) {
+            e.preventDefault();
+            const targetChar = state.sample[state.typed.length];
+            const isCorrect = (config.mode === 'custom') ? (mappedChar === targetChar) : (mappedChar.toLowerCase() === targetChar.toLowerCase());
+
+            if (pos && config.keypress && config.showKb && !DOM.typingWrapper.classList.contains('stats-active')) {
+                const rect = document.querySelector(`#key-${pos} rect`);
+                if (rect) rect.classList.add(isCorrect ? 'active' : 'active-error');
+            }
+
+            const expectedLabel = targetChar === ' ' ? 'Space' : targetChar.toUpperCase();
+            const workingMapForFinger = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+            const expectedPos = Object.keys(workingMapForFinger).find(p => (workingMapForFinger[p] || "").toUpperCase() === expectedLabel);
+
+            if (expectedPos) {
+                if (!state.fingerHits[expectedPos]) state.fingerHits[expectedPos] = { correct: 0, total: 0 };
+                state.fingerHits[expectedPos].total++; if (isCorrect) state.fingerHits[expectedPos].correct++;
+            }
+
+            if (isCorrect) {
+                state.currentStreak++; if (state.currentStreak > state.bestStreak) state.bestStreak = state.currentStreak;
+                DOM.streakCount.textContent = state.currentStreak;
+            } else {
+                state.mistakes++; state.currentStreak = 0; DOM.streakCount.textContent = '0'; playErrorSound();
+                const expected = targetChar?.toLowerCase();
+                if (expected && expected.match(/[a-z]/)) state.mistakeChars[expected] = (state.mistakeChars[expected] || 0) + 1;
+                const cw = getCurrentWord(state.sample, state.typed.length); if (cw) state.mistakeWords.add(cw);
+            }
+
+            state.typed += mappedChar; updateTextUI(); highlightExpected(); 
+            if (state.typed.length === state.sample.length && state.sample.length > 0) checkTestEnd();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.key === "Tab") {
+            state.tabActive = false;
+            DOM.tabRestartOverlay.classList.remove('active');
+        }
+        if (config.showKb) document.querySelectorAll('.key-rect').forEach(r => r.classList.remove('active', 'active-error'));
+    });
+
+  window.onload = async () => {
+        const cachedVer = localStorage.getItem('moosytype_ver');
+        if (cachedVer !== APP_VERSION) {
+            localStorage.clear(); 
+            localStorage.setItem('moosytype_ver', APP_VERSION);
+        }
+
+        cacheDOM(); 
+        
+        Object.keys(HARDWARE).forEach(k => DOM.hwSelect.add(new Option(HARDWARE[k].name, k)));
+        ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => { 
+            DOM.sourceSelect.add(new Option(k.toUpperCase(), k)); 
+            DOM.targetSelect.add(new Option(k.toUpperCase(), k)); 
+        });
+        
+        DOM.targetSelect.insertBefore(new Option('Default (Same as Source)', 'default'), DOM.targetSelect.firstChild);
+
+        loadConfig(); 
+
+        DOM.hwSelect.onchange = (e) => { setPref('hw', e.target.value); };
+        DOM.sourceSelect.onchange = (e) => { 
+            setPref('sourceKey', e.target.value); 
+            state.sourceMap = buildMap(config.hw, e.target.value, 'source');
+            if (config.tgt === 'default') { state.currentMap = buildMap(config.hw, config.tgt, 'target'); renderKeyboard(); }
+            restartCurrentMode(); 
+        };
+        DOM.targetSelect.onchange = (e) => { 
+            setPref('tgt', e.target.value);
+            state.currentMap = buildMap(config.hw, e.target.value, 'target'); renderKeyboard(); restartCurrentMode(); 
+        };
+        
+        DOM.wordCountSelect.onchange = (e) => { setPref('wordCount', e.target.value); if(config.mode === 'words') generateWords(); };
+        DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); }; 
+        
+        DOM.wordsBtn.onclick = generateWords; 
+        DOM.newsBtn.onclick = fetchNews; 
+        DOM.myTextBtn.onclick = openModal;
+        
+        if (config.mode === 'words') setActiveModeBtn('wordsBtn');
+        else if (config.mode === 'news') setActiveModeBtn('newsBtn');
+        else setActiveModeBtn('myTextBtn');
+
+        // NEW: Wait for the Monkeytype 200-word dictionary to load!
+        await loadDictionary();
+
+        if (config.showKb && !state.setupOpen) initKeyboard();
+        else setupNewTest(state.sample || commonWords.slice(0, parseInt(config.wordCount) || 25).join(' ')); 
+        
+        restartCurrentMode();
+    }
+	
+	
+    </script>
+</body>
+</html>

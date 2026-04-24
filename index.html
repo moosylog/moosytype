@@ -1514,14 +1514,21 @@ function endTest(earlyExit = false) {
         if (config.showKb) document.querySelectorAll('.key-rect').forEach(r => r.classList.remove('active', 'active-error'));
     });
 
-  window.onload = async () => {
-        const cachedVer = localStorage.getItem('moosytype_ver');
-        if (cachedVer !== APP_VERSION) {
-            localStorage.clear(); 
-            localStorage.setItem('moosytype_ver', APP_VERSION);
-        }
+    window.onload = async () => {
+        const cachedVer = localStorage.getItem('moosytype_ver');
+        const isReturningUser = (cachedVer === APP_VERSION);
 
-        cacheDOM(); 
+        if (!isReturningUser) {
+            localStorage.clear(); 
+            localStorage.setItem('moosytype_ver', APP_VERSION);
+        }
+
+        cacheDOM(); 
+
+        // Hide the start overlay immediately if the cache exists
+        if (isReturningUser) {
+            DOM.overlay.style.display = 'none';
+        }
         
         Object.keys(HARDWARE).forEach(k => DOM.hwSelect.add(new Option(HARDWARE[k].name, k)));
         ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => { 

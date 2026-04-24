@@ -1,6 +1,6 @@
 <div align="center">
 
-# MOOSYTYPE
+# moosytype
 **ZMK Matrix Training with a familiar, buttery-smooth feel**
 
 [![HTML5](https://img.shields.io/badge/HTML5-Strict-E34F26?style=for-the-badge&logo=html5&logoColor=white)](#)

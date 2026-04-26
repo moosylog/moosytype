@@ -965,12 +965,23 @@
         if (typedLen > 0 && config.showKb && !state.setupOpen) DOM.dragHint.classList.add('hidden-hint'); 
         else if (config.showKb && !state.setupOpen) DOM.dragHint.classList.remove('hidden-hint');
 
-        if (state.sample.length > 0) {
+if (state.sample.length > 0) {
             const totalWords = state.sample.split(/\s+/).length; let currentWord = state.typed.split(/\s+/).length;
             if (typedLen === state.sample.length) currentWord = totalWords; else if (typedLen === 0) currentWord = 1;
-            DOM.progressIndicator.innerText = `${currentWord}/${totalWords}`;
-        } else { DOM.progressIndicator.innerText = "0/0"; }
-
+            
+            let progressText = `${currentWord}/${totalWords}`;
+            
+            // Check if we are practicing mistakes and append the light red label
+            if (config.mode === 'mistakes') {
+                DOM.progressIndicator.innerHTML = `${progressText} <span style="font-size: 16px; color: var(--error); font-weight: normal; margin-left: 10px;">(practice mistakes)</span>`;
+            } else {
+                DOM.progressIndicator.innerText = progressText;
+            }
+        } else { 
+            DOM.progressIndicator.innerText = "0/0"; 
+        }
+		
+		
         DOM.textSpans.forEach((span, i) => {
             span.removeAttribute('id');
             if (i < typedLen) span.className = state.typed[i] === state.sample[i] ? 'correct-text' : 'error-char';
@@ -1515,20 +1526,20 @@ function endTest(earlyExit = false) {
     });
 
     window.onload = async () => {
-        const cachedVer = localStorage.getItem('moosytype_ver');
-        const isReturningUser = (cachedVer === APP_VERSION);
+        const cachedVer = localStorage.getItem('moosytype_ver');
+        const isReturningUser = (cachedVer === APP_VERSION);
 
-        if (!isReturningUser) {
-            localStorage.clear(); 
-            localStorage.setItem('moosytype_ver', APP_VERSION);
-        }
+        if (!isReturningUser) {
+            localStorage.clear(); 
+            localStorage.setItem('moosytype_ver', APP_VERSION);
+        }
 
-        cacheDOM(); 
+        cacheDOM(); 
 
-        // Hide the start overlay immediately if the cache exists
-        if (isReturningUser) {
-            DOM.overlay.style.display = 'none';
-        }
+        // Hide the start overlay immediately if the cache exists
+        if (isReturningUser) {
+            DOM.overlay.style.display = 'none';
+        }
         
         Object.keys(HARDWARE).forEach(k => DOM.hwSelect.add(new Option(HARDWARE[k].name, k)));
         ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => { 

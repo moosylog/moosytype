@@ -8,7 +8,7 @@
 [![Monkeytype Math](https://img.shields.io/badge/Monkeytype_WPM-Strict-e2b714?style=for-the-badge)](#)
 [![Moosy Research](https://img.shields.io/badge/Moosy_Research-2026-00E5FF?style=for-the-badge)](#)
 
-*To love is to recognize. Master your split ergonomic keyboard with interactive visual aids, LayerForge JSON parsing, and strict e-sports typing metrics.*
+*To love is to recognize. Master your split ergonomic keyboard with interactive visual aids.*
 
 <br>
 

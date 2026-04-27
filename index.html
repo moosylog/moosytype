@@ -133,10 +133,14 @@
         .correct-text { color: var(--correct); }
         .error-char { color: var(--error); border-bottom: 3px solid var(--error); background: rgba(202, 71, 84, 0.15); }
         
-        #caret {
-            position: absolute; width: 3px; height: 1.1em; background-color: var(--text-color);
-            border-radius: 2px; transition: left 0.1s ease-out, top 0.1s ease-out; z-index: 10; margin-top: 0.25em;
-        }
+         #caret {
+           position: absolute; width: 3px; height: 1.1em; background-color: var(--text-color);
+           border-radius: 2px; z-index: 10; margin-top: 0.25em;
+           left: 0; top: 0; /* Sets the anchor point for the transform */
+           transition: transform 0.1s cubic-bezier(0.2, 0, 0, 1);
+         }
+		 
+		 
         .blinking { animation: caretBlink 1s infinite; }
 
         /* --- KEYBOARD --- */
@@ -989,12 +993,12 @@ if (state.sample.length > 0) {
             else span.className = '';
         });
 
-        const activeChar = document.getElementById('active-char');
-        if (activeChar && DOM.caret) {
-            DOM.caret.classList.remove('blinking');
-            DOM.caret.style.display = state.testCompleted || state.setupOpen ? 'none' : 'block';
-            DOM.caret.style.left = activeChar.offsetLeft + "px"; DOM.caret.style.top = activeChar.offsetTop + "px";
-            clearTimeout(blinkTimeout); blinkTimeout = setTimeout(() => DOM.caret.classList.add('blinking'), 500);
+const activeChar = document.getElementById('active-char');
+if (activeChar && DOM.caret) {
+    DOM.caret.classList.remove('blinking');
+    DOM.caret.style.display = state.testCompleted || state.setupOpen ? 'none' : 'block';
+    DOM.caret.style.transform = `translate(${activeChar.offsetLeft}px, ${activeChar.offsetTop}px)`;
+    clearTimeout(blinkTimeout); blinkTimeout = setTimeout(() => DOM.caret.classList.add('blinking'), 500);
             
             const lineHeight = 51.2;
             const currentLine = Math.round(activeChar.offsetTop / lineHeight);
@@ -1139,16 +1143,17 @@ function endTest(earlyExit = false) {
         renderSparkline(); renderFingerStats();
 
         // Check if there are any actual mistakes left over
+// Check if there are any actual mistakes left over
         if (state.mistakes > 0) {
             const sorted = Object.keys(state.mistakeChars).sort((a, b) => state.mistakeChars[b] - state.mistakeChars[a]);
             let html = sorted.map(c => `<span>${c}</span>`).join('');
-            DOM.mistakeInfo.innerHTML = html; DOM.mistakeHint.innerHTML = ` · <span style="color:var(--text-color)">Enter</span> to practice mistakes`;
+            DOM.mistakeInfo.innerHTML = html; 
+            DOM.mistakeHint.innerHTML = ` · <span style="color:var(--text-color)">Space</span> practice mistakes · <span style="color:var(--text-color)">Enter</span> next test`;
         } else { 
             DOM.mistakeInfo.innerHTML = '<span style="color:var(--correct)">Clean run!</span>'; 
             DOM.mistakeHint.innerHTML = ` · <span style="color:var(--text-color)">Enter</span> to start next session`; 
         }
     }
-
 
 
 
@@ -1442,13 +1447,16 @@ function endTest(earlyExit = false) {
         if (mappedChar === "Escape" && state.testStarted && !state.testCompleted) { 
             e.preventDefault(); endTest(true); return; 
         }
-        if (state.testCompleted) { 
+if (state.testCompleted) { 
             if (mappedChar === "Enter") {
+                // Enter always starts a fresh test
                 e.preventDefault();
-                // Only trigger practice mode if actual mistakes were made
+                restartCurrentMode(); 
+            } else if (mappedChar === "Space" || mappedChar === " ") {
+                // Space deliberately triggers mistake practice
+                e.preventDefault();
                 if (state.mistakes > 0) practiceMistakes();
-                else restartCurrentMode(); 
-            } 
+            }
             return; 
         }
 		

@@ -45,6 +45,7 @@ It is built as a lightning-fast, single HTML file that runs entirely in your bro
 * **Mechanical Audio Synthesis:** No `.wav` files needed. Features a custom Web Audio API synthesizer that mathematically mimics the sound of mechanical switches to keep you in rhythm.
 * **Familiar Aesthetics:** A beautiful, distraction-free UI featuring buttery-smooth caret animations, dynamic Focus Mode color-fading, and classic typing colorways.
 * **Live News & Custom Text:** Break the monotony of top-200 English words by typing live RSS news feeds or pasting your own custom practice text.
+* **Multi-Language (Hebrew):** An input-language selector teaches blind Hebrew typing. Hebrew switches the on-screen keyboard to the Standard Israeli (SI-1452) layout, serves Hebrew words and phrases, and renders the text right-to-left.
 * **Offline Ready & Local Storage:** Everything runs locally. Your top scores, heatmaps, and preferences are saved right in your browser cache.
 
 ---

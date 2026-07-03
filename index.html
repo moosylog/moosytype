@@ -295,8 +295,7 @@
                     <span class="mt-setting-desc">Letters shown on the keyboard, and the words/phrases to type</span>
                 </div>
                 <div class="mt-setting-action">
-                    <button class="mt-toggle-btn active" id="lang-en" onclick="setLang('en')">English</button>
-                    <button class="mt-toggle-btn" id="lang-he" onclick="setLang('he')">עברית</button>
+                    <select id="langSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
                 </div>
             </div>
         </div>
@@ -527,12 +526,25 @@
         'Z':'ז', 'X':'ס', 'C':'ב', 'V':'ה', 'B':'נ', 'N':'מ', 'M':'צ', ',':'ת', '.':'ץ', '/':'.'
     };
 
-    // Populate HARDWARE[*].layouts.hebrew from each board's qwerty layout.
-    function buildHebrewLayouts() {
+    // Standard Arabic 101 keyboard: physical QWERTY key label -> Arabic letter.
+    const QWERTY_TO_ARABIC = {
+        '`':'ذ',
+        'Q':'ض', 'W':'ص', 'E':'ث', 'R':'ق', 'T':'ف', 'Y':'غ', 'U':'ع', 'I':'ه', 'O':'خ', 'P':'ح', '[':'ج', ']':'د',
+        'A':'ش', 'S':'س', 'D':'ي', 'F':'ب', 'G':'ل', 'H':'ا', 'J':'ت', 'K':'ن', 'L':'م', ';':'ك', '\'':'ط',
+        'Z':'ئ', 'X':'ء', 'C':'ؤ', 'V':'ر', 'B':'لا', 'N':'ى', 'M':'ة', ',':'و', '.':'ز', '/':'ظ'
+    };
+
+    // Derive script-based target layouts (hebrew, arabic) for every board from its qwerty layout,
+    // so pressing a physical key produces the correct letter (blind typing of that script).
+    const SCRIPT_MAPS = { hebrew: QWERTY_TO_HEBREW, arabic: QWERTY_TO_ARABIC };
+    function buildScriptLayouts() {
         Object.keys(HARDWARE).forEach(hw => {
             const q = HARDWARE[hw].layouts['qwerty'];
             if (!q) return;
-            HARDWARE[hw].layouts['hebrew'] = q.map(k => QWERTY_TO_HEBREW[k] !== undefined ? QWERTY_TO_HEBREW[k] : k);
+            Object.keys(SCRIPT_MAPS).forEach(script => {
+                const map = SCRIPT_MAPS[script];
+                HARDWARE[hw].layouts[script] = q.map(k => map[k] !== undefined ? map[k] : k);
+            });
         });
     }
 
@@ -569,31 +581,58 @@
         "החברים נפגשים בבית הקפה הקטן"
     ];
 
-    // Runtime Hebrew word list; starts as the offline fallback, upgraded from Monkeytype.
-    let heWords = HE_WORDS_FALLBACK;
-    let heLoaded = false;
-    async function loadHebrewDictionary() {
-        if (heLoaded) return;
-        // Prefer Monkeytype's 1k frequency list; fall back to the 300-word list, then offline.
-        const sources = [
-            'https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/hebrew_1k.json',
-            'https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/hebrew.json'
-        ];
-        for (const url of sources) {
+    // --- Offline fallback word lists (used if the runtime fetch fails). ---
+    // Latin lists are pre-stripped of accents so they're typeable on a single QWERTY key.
+    const ES_FALLBACK = ["de","la","que","el","en","y","a","los","se","del","las","un","por","con","no","una","su","para","es","al","lo","como","mas","pero","sus","le","ya","o","este","si","porque","cuando","muy","sin","sobre","tambien","hasta","hay","donde","quien"];
+    const FR_FALLBACK = ["le","de","un","etre","et","a","il","avoir","ne","je","son","que","se","qui","ce","dans","en","du","elle","au","pour","pas","que","vous","par","sur","faire","plus","dire","me","on","mon","lui","nous","comme","mais","pouvoir","avec","tout","aller"];
+    const IT_FALLBACK = ["di","che","e","la","il","un","in","per","non","con","cosa","anno","uomo","giorno","volta","casa","parte","vita","tempo","donna","mano","occhio","signore","paese","momento","modo","mondo","parola","padre","punto","essere","avere","fare","dire","potere","dovere","molto","anche","quando","perche"];
+    const PT_FALLBACK = ["o","de","e","em","ser","um","a","que","para","nao","com","por","ter","se","seu","eu","estar","ele","mais","fazer","como","mas","ao","das","dos","ou","quando","muito","ja","eu","tambem","so","pelo","isso","essa","entre","depois","sem","mesmo","ate"];
+    const AR_FALLBACK = ["من","في","على","هذا","هو","هي","نحن","انا","انت","لا","نعم","ما","كان","هل","ايضا","كل","بعد","قبل","يوم","بيت","ماء","كتاب","مدينة","عالم","رجل","امراة","ولد","بنت","كبير","صغير","جميل","جديد","طعام","عمل","وقت","حب","سلام","شكرا","صديق","عائلة"];
+
+    // --- Word normalizers so fetched words are typeable on the app's US-QWERTY source. ---
+    // Latin: decompose and drop combining diacritics (é→e, ñ→n, ç→c, à→a ...). Matches Monkeytype lazy mode.
+    function stripLatinAccents(w) { return w.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'"); }
+    // Arabic: drop tashkeel/tatweel/superscript-alef and fold hamzated-alef forms to plain alef.
+    function normalizeArabic(w) {
+        return w.replace(/[ً-ْـٰ]/g, '').replace(/[أإآٱ]/g, 'ا');
+    }
+
+    // --- Language registry. `script:'latin'` keeps the user's target layout; hebrew/arabic force theirs. ---
+    const LANGUAGES = {
+        en: { name: 'English',              dir: 'ltr', script: 'latin' },
+        es: { name: 'Español (Spanish)',    dir: 'ltr', script: 'latin',  files: ['spanish_1k.json'],    fallback: ES_FALLBACK, normalize: stripLatinAccents },
+        fr: { name: 'Français (French)',    dir: 'ltr', script: 'latin',  files: ['french_1k.json'],     fallback: FR_FALLBACK, normalize: stripLatinAccents },
+        it: { name: 'Italiano (Italian)',   dir: 'ltr', script: 'latin',  files: ['italian_1k.json'],    fallback: IT_FALLBACK, normalize: stripLatinAccents },
+        pt: { name: 'Português (Portuguese)', dir: 'ltr', script: 'latin', files: ['portuguese_1k.json'], fallback: PT_FALLBACK, normalize: stripLatinAccents },
+        he: { name: 'עברית (Hebrew)',        dir: 'rtl', script: 'hebrew', files: ['hebrew_1k.json', 'hebrew.json'], fallback: HE_WORDS_FALLBACK, phrases: HE_PHRASES },
+        ar: { name: 'العربية (Arabic)',      dir: 'rtl', script: 'arabic', files: ['arabic.json', 'arabic_10k.json'], fallback: AR_FALLBACK, normalize: normalizeArabic }
+    };
+    const MT_LANG_BASE = 'https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/';
+
+    // Runtime per-language word cache (English is served by the existing commonWords/loadDictionary).
+    const wordCache = {};
+    async function loadLangDictionary(lang) {
+        const spec = LANGUAGES[lang];
+        if (lang === 'en' || !spec || !spec.files || wordCache[lang]) return;
+        for (const file of spec.files) {
             try {
-                const res = await fetch(url);
+                const res = await fetch(MT_LANG_BASE + file);
                 const data = await res.json();
                 if (data && Array.isArray(data.words) && data.words.length) {
-                    // Frequency-ordered: draw from a generous top slice so words stay approachable.
-                    heWords = data.words.slice(0, 500); heLoaded = true; return;
+                    let words = data.words.slice(0, 600);
+                    if (spec.normalize) words = words.map(spec.normalize).filter(w => w.length > 0);
+                    wordCache[lang] = words; return;
                 }
             } catch (e) { /* try next source */ }
         }
-        console.warn('Using offline Hebrew fallback word list.');
+        console.warn(`Using offline fallback word list for '${lang}'.`);
     }
 
     // Pool of practice words for the active language.
-    function wordPool() { return config.lang === 'he' ? heWords : commonWords; }
+    function wordPool() {
+        if (config.lang === 'en') return commonWords;
+        return wordCache[config.lang] || LANGUAGES[config.lang].fallback || commonWords;
+    }
 
     /* ==========================================================================
        STATE, CACHE, DOM
@@ -620,7 +659,8 @@
         Object.assign(DOM, {
             overlay: document.getElementById('startOverlay'),
             mainHeader: document.getElementById('mainHeader'),
-            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'), 
+            langSelect: document.getElementById('langSelect'),
+            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'),
             wordCountSelect: document.getElementById('wordCountSelect'), timedSelect: document.getElementById('timedSelect'),
             jsonStatus: document.getElementById('jsonStatus'),
             newsBtn: document.getElementById('newsBtn'), wordsBtn: document.getElementById('wordsBtn'),
@@ -897,44 +937,50 @@
         posArray.forEach((p, i) => map[p] = layoutArray[i]); return map;
     }
 
-    // The effective target map. In Hebrew we force the generated 'hebrew' layout,
-    // unless the user has an explicit custom target (uploaded JSON or dragged tweak).
+    // The effective target map. Non-Latin languages (Hebrew, Arabic) force their generated
+    // script layout, unless the user has an explicit custom target (uploaded JSON or dragged tweak).
     function currentTargetMap() {
-        if (config.lang === 'he' && config.tgt !== 'custom_dragged' && config.tgt !== 'custom_json') {
-            return buildMap(config.hw, 'hebrew', 'target');
+        const script = LANGUAGES[config.lang] && LANGUAGES[config.lang].script;
+        if ((script === 'hebrew' || script === 'arabic') && config.tgt !== 'custom_dragged' && config.tgt !== 'custom_json') {
+            return buildMap(config.hw, script, 'target');
         }
         return buildMap(config.hw, config.tgt, 'target');
     }
 
-    function isRTL() { return config.lang === 'he'; }
+    function isRTL() { return LANGUAGES[config.lang] && LANGUAGES[config.lang].dir === 'rtl'; }
 
     function applyRTL() {
-        if (DOM.sampleContainer) DOM.sampleContainer.classList.toggle('rtl', isRTL());
+        if (DOM.sampleContainer) DOM.sampleContainer.classList.toggle('rtl', !!isRTL());
     }
 
     function syncLangUI(lang) {
-        const en = document.getElementById('lang-en'), he = document.getElementById('lang-he');
-        if (en && he) { en.classList.toggle('active', lang === 'en'); he.classList.toggle('active', lang === 'he'); }
+        if (DOM.langSelect) DOM.langSelect.value = lang;
     }
 
-    // The middle mode button is language-adaptive: English -> live "news" (RSS),
-    // Hebrew -> offline "phrases" (RSS feeds are English-only).
+    // Which practice sources are available in the active language:
+    //  - English: live "news" (RSS is English-only)
+    //  - Languages with a bundled phrases set (Hebrew): "phrases"
+    //  - Everything else: words + custom only (middle button hidden)
+    function langHasPhrases() { return !!(LANGUAGES[config.lang] && LANGUAGES[config.lang].phrases); }
     function updateModeButtonsForLang() {
-        if (DOM.newsBtn) DOM.newsBtn.textContent = (config.lang === 'he') ? 'phrases' : 'news';
+        if (!DOM.newsBtn) return;
+        if (config.lang === 'en') { DOM.newsBtn.style.display = ''; DOM.newsBtn.textContent = 'news'; }
+        else if (langHasPhrases()) { DOM.newsBtn.style.display = ''; DOM.newsBtn.textContent = 'phrases'; }
+        else { DOM.newsBtn.style.display = 'none'; }
     }
 
     async function setLang(lang) {
-        if (lang !== 'en' && lang !== 'he') return;
+        if (!LANGUAGES[lang]) return;
         config.lang = lang; saveConfig();
         syncLangUI(lang); applyRTL(); updateModeButtonsForLang();
 
-        // Reconcile the current mode with the new language's available sources.
-        if (lang === 'en' && config.mode === 'phrases') config.mode = 'words';
-        if (lang === 'he' && config.mode === 'news') config.mode = 'phrases';
+        // Reconcile the current mode with the sources available in the new language.
+        if (config.mode === 'news' && lang !== 'en') config.mode = langHasPhrases() ? 'phrases' : 'words';
+        if (config.mode === 'phrases' && !langHasPhrases()) config.mode = 'words';
 
-        if (lang === 'he') await loadHebrewDictionary();
+        await loadLangDictionary(lang);
 
-        initKeyboard();   // rebuilds source/target maps (Hebrew forces the SI-1452 target)
+        initKeyboard();   // rebuilds source/target maps (non-Latin scripts force their layout)
         renderKeyboard();
         restartCurrentMode();
     }
@@ -1203,12 +1249,14 @@ if (activeChar && DOM.caret) {
         for(let i=0; i<count; i++) selected.push(shuffled[i % shuffled.length]); setupNewTest(selected.join(' '));
     }
 
-    // Hebrew "phrases" mode: whole curated sentences, RTL. Occupies the middle mode
-    // button in Hebrew (where English shows live "news").
+    // "phrases" mode: whole curated sentences from the active language (currently Hebrew).
+    // Occupies the middle mode button where English shows live "news".
     function generatePhrases() {
+        const phrases = (LANGUAGES[config.lang] && LANGUAGES[config.lang].phrases) || [];
+        if (phrases.length === 0) { generateWords(); return; }
         setActiveModeBtn('newsBtn'); config.mode = 'phrases'; saveConfig();
         const count = parseInt(config.wordCount) || 25;
-        const pool = [...HE_PHRASES].sort(() => Math.random() - 0.5);
+        const pool = [...phrases].sort(() => Math.random() - 0.5);
         let out = [], wc = 0, i = 0;
         while (wc < count) { const p = pool[i % pool.length]; out.push(p); wc += p.split(' ').length; i++; }
         setupNewTest(out.join(' '));
@@ -1402,7 +1450,7 @@ function endTest(earlyExit = false) {
                 HARDWARE[config.hw].pos.forEach(p => {
                     if (getFingerName(p) === finger) {
                         const label = workingMap[p];
-                        if (label && label.length === 1 && label.match(/[a-zא-ת]/i)) charWeights[label.toLowerCase()] = (charWeights[label.toLowerCase()] || 0) + Math.round((1 - (d.correct / d.total)) * 5);
+                        if (label && label.length === 1 && label.match(/[a-zא-תء-ي]/i)) charWeights[label.toLowerCase()] = (charWeights[label.toLowerCase()] || 0) + Math.round((1 - (d.correct / d.total)) * 5);
                     }
                 });
             }
@@ -1676,7 +1724,7 @@ if (state.testCompleted) {
             } else {
                 state.mistakes++; state.currentStreak = 0; DOM.streakCount.textContent = '0'; playErrorSound();
                 const expected = targetChar?.toLowerCase();
-                if (expected && expected.match(/[a-zא-ת]/)) state.mistakeChars[expected] = (state.mistakeChars[expected] || 0) + 1;
+                if (expected && expected.match(/[a-zא-תء-ي]/)) state.mistakeChars[expected] = (state.mistakeChars[expected] || 0) + 1;
                 const cw = getCurrentWord(state.sample, state.typed.length); if (cw) state.mistakeWords.add(cw);
             }
 
@@ -1709,7 +1757,8 @@ if (state.testCompleted) {
             DOM.overlay.style.display = 'none';
         }
         
-        buildHebrewLayouts();   // derive the SI-1452 'hebrew' target layout for every board
+        buildScriptLayouts();   // derive the hebrew/arabic target layouts for every board
+        Object.keys(LANGUAGES).forEach(k => DOM.langSelect.add(new Option(LANGUAGES[k].name, k)));
 
         Object.keys(HARDWARE).forEach(k => DOM.hwSelect.add(new Option(HARDWARE[k].name, k)));
         ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => {
@@ -1720,7 +1769,9 @@ if (state.testCompleted) {
         DOM.targetSelect.insertBefore(new Option('Default (Same as Source)', 'default'), DOM.targetSelect.firstChild);
 
         loadConfig();
+        if (!LANGUAGES[config.lang]) config.lang = 'en';
         syncLangUI(config.lang); applyRTL(); updateModeButtonsForLang();
+        DOM.langSelect.onchange = (e) => { setLang(e.target.value); };
 
         DOM.hwSelect.onchange = (e) => { setPref('hw', e.target.value); };
         DOM.sourceSelect.onchange = (e) => {
@@ -1738,16 +1789,16 @@ if (state.testCompleted) {
         DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); };
 
         DOM.wordsBtn.onclick = generateWords;
-        DOM.newsBtn.onclick = () => (config.lang === 'he') ? generatePhrases() : fetchNews();
+        DOM.newsBtn.onclick = () => langHasPhrases() ? generatePhrases() : fetchNews();
         DOM.myTextBtn.onclick = openModal;
 
         if (config.mode === 'words') setActiveModeBtn('wordsBtn');
         else if (config.mode === 'news' || config.mode === 'phrases') setActiveModeBtn('newsBtn');
         else setActiveModeBtn('myTextBtn');
 
-        // Load word lists: Monkeytype's 200-word English list, plus Hebrew if that's the active language.
+        // Load word lists: Monkeytype's English list, plus the active language's list if non-English.
         await loadDictionary();
-        if (config.lang === 'he') await loadHebrewDictionary();
+        await loadLangDictionary(config.lang);
 
         if (config.showKb && !state.setupOpen) initKeyboard();
         else setupNewTest(state.sample || wordPool().slice(0, parseInt(config.wordCount) || 25).join(' '));

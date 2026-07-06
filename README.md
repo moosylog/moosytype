@@ -38,6 +38,18 @@ It is built as a lightning-fast, single HTML file that runs entirely in your bro
 
 ---
 
+## ✨ Key Highlights
+
+* **Visualize Your Split Keyboard:** Native support to visualize your **Glove80, Go60, Corne, or Voyager** in QWERTY, Colemak-DH, Dvorak, or your own custom layout.
+* **Familiar Aesthetics:** A beautiful, distraction-free, Monkeytype-inspired UI featuring buttery-smooth caret animations, dynamic Focus Mode, and classic typing colorways.
+* **Strict Monkeytype Math:** Utilizes exact Net WPM and accuracy formulas from the competitive typing standard. Uncorrected typos aggressively drop the word from your speed.
+* **Smart Mistake Practice:** Tracks your exact fingering and key errors, automatically generating targeted practice sessions for your weakest keys.
+* **Mechanical Audio Synthesis:** Features a custom Web Audio API synthesizer that mathematically mimics the sound of mechanical switches (no audio files needed).
+* **Live News & Custom Text:** Break the monotony by typing live RSS news feeds (NPR/NYT) or pasting your own custom code snippets and text.
+* **100% Open Source & Local:** Free, transparent, and offline-ready. Your top scores, heatmaps, and preferences are saved securely right in your browser cache.
+
+---
+
 ## 🚀 Key Features
 
 * **Strict Monkeytype Math:** Utilizes the exact Net WPM and accuracy formulas from the competitive typing standard. If you make an uncorrected typo, the entire word is aggressively dropped from your speed calculation.

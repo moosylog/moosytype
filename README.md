@@ -27,14 +27,9 @@
 
 ## 🌐 Overview
 
-Moosytype is a **visual layout trainer** built specifically for ergonomic, split, and columnar keyboards. It is the evolution of Alpha Test Drive.
+Moosytype is a simple typing trainer built specifically for split, ergonomic, and columnar keyboards. 
 
-Instead of just looking at a screen of text, Moosytype trains your physical muscle memory by:
-- Showing a live, interactive SVG map of your exact physical keyboard  
-- Highlighting the expected key you need to press on your specific layout  
-- Allowing you to test-drive completely new alpha layers (Colemak-DH, Dvorak, etc.) before flashing them to your firmware  
-
-It is built as a lightning-fast, single HTML file that runs entirely in your browser. No installation, no backend, and no extra downloads—just pure, focused practice.
+Instead of making you guess where your keys are, it shows a live, interactive map of your exact keyboard on the screen. As you type, it highlights the keys you need to hit next. This lets you test-drive new layouts like Colemak-DH or Dvorak to build up your muscle memory *before* you actually flash them to your hardware.
 
 ---
 

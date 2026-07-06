@@ -29,7 +29,7 @@
 
 Moosytype is a simple typing trainer built specifically for split, ergonomic, and columnar keyboards. 
 
-Instead of making you guess where your keys are, it shows a live, interactive map of your exact keyboard on the screen. As you type, it highlights the keys you need to hit next. This lets you test-drive new layouts like Colemak-DH or Dvorak to build up your muscle memory *before* you actually flash them to your hardware.
+Instead of making you guess where your keys are, it shows a live, interactive map of your exact keyboard on the screen. As you type, it highlights the keys you need to hit next. It also lets you test-drive new layouts like Colemak-DH or Dvorak to build up your muscle memory *before* you actually flash them to your hardware.
 
 ---
 

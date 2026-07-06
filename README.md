@@ -38,14 +38,15 @@ It is built as a lightning-fast, single HTML file that runs entirely in your bro
 
 ---
 
-## 🚀 Key Features
+## ✨ Key Highlights
 
-* **Strict Monkeytype Math:** Utilizes the exact Net WPM and accuracy formulas from the competitive typing standard. If you make an uncorrected typo, the entire word is aggressively dropped from your speed calculation.
-* **Smart Mistake Practice:** The engine tracks your exact fingering and key errors, automatically generating custom practice text targeting your weakest characters.
-* **Mechanical Audio Synthesis:** No `.wav` files needed. Features a custom Web Audio API synthesizer that mathematically mimics the sound of mechanical switches to keep you in rhythm.
-* **Familiar Aesthetics:** A beautiful, distraction-free UI featuring buttery-smooth caret animations, dynamic Focus Mode color-fading, and classic typing colorways.
-* **Live News & Custom Text:** Break the monotony of top-200 English words by typing live RSS news feeds or pasting your own custom practice text.
-* **Offline Ready & Local Storage:** Everything runs locally. Your top scores, heatmaps, and preferences are saved right in your browser cache.
+* **Visualize Your Split Keyboard:** Map your Glove80, Go60, Corne, or Voyager in QWERTY, Colemak-DH, Dvorak, or any custom layout.
+* **Test Drive Before Flashing:** Practice any QWERTY alternative safely in your browser *before* flashing it to your keyboard's firmware.
+* **Monkeytype-Inspired Experience:** Train inside a clean, beautiful, and instantly familiar fluid interface.
+* **Algorithmic Mistake Tracking:** Automatically generate targeted practice sessions to isolate and fix your weakest keys.
+* **Open Source & Local:** Free, transparent, and private. Everything runs in your browser with zero backend or dependencies.
+
+
 
 ---
 

@@ -132,6 +132,9 @@
         }
         #textWrapper { position: relative; width: 100%; transition: transform 0.2s ease-out; }
 
+        /* RTL languages (e.g. Hebrew): flow the sample text right-to-left. */
+        .sample-text-container.rtl { direction: rtl; text-align: right; }
+
         .correct-text { color: var(--correct); }
         .error-char { color: var(--error); border-bottom: 3px solid var(--error); background: rgba(202, 71, 84, 0.15); }
         
@@ -282,6 +285,19 @@
         <div id="bestScoresContainer" style="display:none;">
             <div class="settings-section-title">Personal Bests (Top 5)</div>
             <div class="settings-section" id="bestScoresList" style="margin-bottom: 10px;"></div>
+        </div>
+
+        <div class="settings-section-title">Input Language</div>
+        <div class="settings-section">
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Practice Language</span>
+                    <span class="mt-setting-desc">Letters shown on the keyboard, and the words/phrases to type</span>
+                </div>
+                <div class="mt-setting-action">
+                    <select id="langSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
+                </div>
+            </div>
         </div>
 
         <div class="settings-section-title">Matrix & Layout</div>
@@ -498,9 +514,131 @@
     };
 
     /* ==========================================================================
+       LANGUAGES (multi-language support; Hebrew is the first non-English lang)
+       ========================================================================== */
+
+    // Standard Israeli Hebrew keyboard (SI-1452): physical QWERTY key label -> Hebrew letter.
+    // Used to derive a 'hebrew' target layout for every hardware from its 'qwerty' layout,
+    // so pressing a physical key produces the correct Hebrew character (blind Hebrew typing).
+    const QWERTY_TO_HEBREW = {
+        'Q':'/', 'W':'\'', 'E':'ק', 'R':'ר', 'T':'א', 'Y':'ט', 'U':'ו', 'I':'ן', 'O':'ם', 'P':'פ',
+        'A':'ש', 'S':'ד', 'D':'ג', 'F':'כ', 'G':'ע', 'H':'י', 'J':'ח', 'K':'ל', 'L':'ך', ';':'ף', '\'':',',
+        'Z':'ז', 'X':'ס', 'C':'ב', 'V':'ה', 'B':'נ', 'N':'מ', 'M':'צ', ',':'ת', '.':'ץ', '/':'.'
+    };
+
+    // Standard Arabic 101 keyboard: physical QWERTY key label -> Arabic letter.
+    const QWERTY_TO_ARABIC = {
+        '`':'ذ',
+        'Q':'ض', 'W':'ص', 'E':'ث', 'R':'ق', 'T':'ف', 'Y':'غ', 'U':'ع', 'I':'ه', 'O':'خ', 'P':'ح', '[':'ج', ']':'د',
+        'A':'ش', 'S':'س', 'D':'ي', 'F':'ب', 'G':'ل', 'H':'ا', 'J':'ت', 'K':'ن', 'L':'م', ';':'ك', '\'':'ط',
+        'Z':'ئ', 'X':'ء', 'C':'ؤ', 'V':'ر', 'B':'لا', 'N':'ى', 'M':'ة', ',':'و', '.':'ز', '/':'ظ'
+    };
+
+    // Derive script-based target layouts (hebrew, arabic) for every board from its qwerty layout,
+    // so pressing a physical key produces the correct letter (blind typing of that script).
+    const SCRIPT_MAPS = { hebrew: QWERTY_TO_HEBREW, arabic: QWERTY_TO_ARABIC };
+    function buildScriptLayouts() {
+        Object.keys(HARDWARE).forEach(hw => {
+            const q = HARDWARE[hw].layouts['qwerty'];
+            if (!q) return;
+            Object.keys(SCRIPT_MAPS).forEach(script => {
+                const map = SCRIPT_MAPS[script];
+                HARDWARE[hw].layouts[script] = q.map(k => map[k] !== undefined ? map[k] : k);
+            });
+        });
+    }
+
+    // Offline Hebrew content (unpointed / no nikud). Used as a fallback; at runtime we
+    // prefer Monkeytype's authoritative 300-word frequency list (same JSON shape as
+    // english.json — { "words": [...], "rightToLeft": true, "noLazyMode": true }).
+    const HE_WORDS_FALLBACK = ["של","את","על","לא","זה","הוא","אני","עם","גם","כל","אבל","מה","כי","יש","אין","או","אם","כמו","עוד","רק","אחד","שני","היה","היא","אנחנו","אתה","הם","זו","כן","אז","פה","שם","איך","מי","למה","מתי","איפה","טוב","רע","גדול","קטן","יפה","חדש","ישן","ארוך","קצר","בית","ילד","ילדה","איש","אישה","יום","לילה","שנה","חודש","שבוע","שעה","מים","אוכל","ספר","עיר","ארץ","עולם","חבר","משפחה","אמא","אבא","אח","אחות","עבודה","דרך","זמן","מקום","דבר","אנשים","חיים","מילה","שאלה","תשובה","אהבה","שלום","תודה","בבקשה","סליחה","כסף","מכונית","רחוב","חדר","שולחן","כיסא","דלת","חלון","שמש","ירח","כוכב","שמיים","אדמה","עץ","פרח","כלב","חתול","ציפור","דג","לחם","חלב","קפה","תה","יין","בשר","ירק","פרי","לבן","שחור","אדום","ירוק","כחול","צהוב","עכשיו","מחר","אתמול","הרבה","מעט","בוקר","ערב","צהריים","גדולה","קטנה","רוצה","אוהב","הולך","בא","עושה","אומר","יודע","חושב","רואה","שומע"];
+
+    const HE_PHRASES = [
+        "בוקר טוב מה שלומך היום",
+        "אני אוהב ללמוד דברים חדשים",
+        "השמש זורחת בשמיים הכחולים",
+        "הילדים משחקים בגן הגדול",
+        "תודה רבה על העזרה שלך",
+        "אנחנו הולכים לבית הספר יחד",
+        "הכלב רץ מהר ברחוב הארוך",
+        "היא קוראת ספר מעניין מאוד",
+        "בבקשה תסגור את הדלת בשקט",
+        "הקפה חם מדי בבוקר הזה",
+        "אני רוצה לנסוע לים בקיץ",
+        "המשפחה שלנו אוכלת ארוחת ערב",
+        "הוא כותב מכתב לחבר שלו",
+        "מזג האוויר נעים מאוד היום",
+        "הפרחים בגינה יפים וריחניים",
+        "אנחנו אוהבים לטייל בטבע יחד",
+        "הילדה שרה שיר יפה מאוד",
+        "כדאי לשתות הרבה מים ביום חם",
+        "הספרייה פתוחה עד השעה שמונה",
+        "הרכבת מגיעה לתחנה בדיוק בזמן",
+        "אני לומד לכתוב בעברית מהר",
+        "החתול ישן על הכיסא הרך",
+        "המורה מסבירה את השיעור בכיתה",
+        "בערב אנחנו צופים בסרט טוב",
+        "החברים נפגשים בבית הקפה הקטן"
+    ];
+
+    // --- Offline fallback word lists (used if the runtime fetch fails). ---
+    // Latin lists are pre-stripped of accents so they're typeable on a single QWERTY key.
+    const ES_FALLBACK = ["de","la","que","el","en","y","a","los","se","del","las","un","por","con","no","una","su","para","es","al","lo","como","mas","pero","sus","le","ya","o","este","si","porque","cuando","muy","sin","sobre","tambien","hasta","hay","donde","quien"];
+    const FR_FALLBACK = ["le","de","un","etre","et","a","il","avoir","ne","je","son","que","se","qui","ce","dans","en","du","elle","au","pour","pas","que","vous","par","sur","faire","plus","dire","me","on","mon","lui","nous","comme","mais","pouvoir","avec","tout","aller"];
+    const IT_FALLBACK = ["di","che","e","la","il","un","in","per","non","con","cosa","anno","uomo","giorno","volta","casa","parte","vita","tempo","donna","mano","occhio","signore","paese","momento","modo","mondo","parola","padre","punto","essere","avere","fare","dire","potere","dovere","molto","anche","quando","perche"];
+    const PT_FALLBACK = ["o","de","e","em","ser","um","a","que","para","nao","com","por","ter","se","seu","eu","estar","ele","mais","fazer","como","mas","ao","das","dos","ou","quando","muito","ja","eu","tambem","so","pelo","isso","essa","entre","depois","sem","mesmo","ate"];
+    const AR_FALLBACK = ["من","في","على","هذا","هو","هي","نحن","انا","انت","لا","نعم","ما","كان","هل","ايضا","كل","بعد","قبل","يوم","بيت","ماء","كتاب","مدينة","عالم","رجل","امراة","ولد","بنت","كبير","صغير","جميل","جديد","طعام","عمل","وقت","حب","سلام","شكرا","صديق","عائلة"];
+
+    // --- Word normalizers so fetched words are typeable on the app's US-QWERTY source. ---
+    // Latin: decompose and drop combining diacritics (é→e, ñ→n, ç→c, à→a ...). Matches Monkeytype lazy mode.
+    function stripLatinAccents(w) { return w.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'"); }
+    // Arabic: drop tashkeel/tatweel/superscript-alef and fold hamzated-alef forms to plain alef.
+    function normalizeArabic(w) {
+        return w.replace(/[ً-ْـٰ]/g, '').replace(/[أإآٱ]/g, 'ا');
+    }
+
+    // --- Language registry. `script:'latin'` keeps the user's target layout; hebrew/arabic force theirs. ---
+    const LANGUAGES = {
+        en: { name: 'English',              dir: 'ltr', script: 'latin' },
+        es: { name: 'Español (Spanish)',    dir: 'ltr', script: 'latin',  files: ['spanish_1k.json'],    fallback: ES_FALLBACK, normalize: stripLatinAccents },
+        fr: { name: 'Français (French)',    dir: 'ltr', script: 'latin',  files: ['french_1k.json'],     fallback: FR_FALLBACK, normalize: stripLatinAccents },
+        it: { name: 'Italiano (Italian)',   dir: 'ltr', script: 'latin',  files: ['italian_1k.json'],    fallback: IT_FALLBACK, normalize: stripLatinAccents },
+        pt: { name: 'Português (Portuguese)', dir: 'ltr', script: 'latin', files: ['portuguese_1k.json'], fallback: PT_FALLBACK, normalize: stripLatinAccents },
+        he: { name: 'עברית (Hebrew)',        dir: 'rtl', script: 'hebrew', files: ['hebrew_1k.json', 'hebrew.json'], fallback: HE_WORDS_FALLBACK, phrases: HE_PHRASES },
+        ar: { name: 'العربية (Arabic)',      dir: 'rtl', script: 'arabic', files: ['arabic.json', 'arabic_10k.json'], fallback: AR_FALLBACK, normalize: normalizeArabic }
+    };
+    const MT_LANG_BASE = 'https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/languages/';
+
+    // Runtime per-language word cache (English is served by the existing commonWords/loadDictionary).
+    const wordCache = {};
+    async function loadLangDictionary(lang) {
+        const spec = LANGUAGES[lang];
+        if (lang === 'en' || !spec || !spec.files || wordCache[lang]) return;
+        for (const file of spec.files) {
+            try {
+                const res = await fetch(MT_LANG_BASE + file);
+                const data = await res.json();
+                if (data && Array.isArray(data.words) && data.words.length) {
+                    let words = data.words.slice(0, 600);
+                    if (spec.normalize) words = words.map(spec.normalize).filter(w => w.length > 0);
+                    wordCache[lang] = words; return;
+                }
+            } catch (e) { /* try next source */ }
+        }
+        console.warn(`Using offline fallback word list for '${lang}'.`);
+    }
+
+    // Pool of practice words for the active language.
+    function wordPool() {
+        if (config.lang === 'en') return commonWords;
+        return wordCache[config.lang] || LANGUAGES[config.lang].fallback || commonWords;
+    }
+
+    /* ==========================================================================
        STATE, CACHE, DOM
        ========================================================================== */
     let config = {
+        lang: 'en',
         hw: 'go60', sourceKey: 'qwerty', tgt: 'default', wordCount: '25', timed: '0', mode: 'words',
         showKb: true, homerow: false, keypress: true, hints: true,
         mirror: false, sound: true, debug: false,
@@ -521,7 +659,8 @@
         Object.assign(DOM, {
             overlay: document.getElementById('startOverlay'),
             mainHeader: document.getElementById('mainHeader'),
-            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'), 
+            langSelect: document.getElementById('langSelect'),
+            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'),
             wordCountSelect: document.getElementById('wordCountSelect'), timedSelect: document.getElementById('timedSelect'),
             jsonStatus: document.getElementById('jsonStatus'),
             newsBtn: document.getElementById('newsBtn'), wordsBtn: document.getElementById('wordsBtn'),
@@ -798,6 +937,54 @@
         posArray.forEach((p, i) => map[p] = layoutArray[i]); return map;
     }
 
+    // The effective target map. Non-Latin languages (Hebrew, Arabic) force their generated
+    // script layout, unless the user has an explicit custom target (uploaded JSON or dragged tweak).
+    function currentTargetMap() {
+        const script = LANGUAGES[config.lang] && LANGUAGES[config.lang].script;
+        if ((script === 'hebrew' || script === 'arabic') && config.tgt !== 'custom_dragged' && config.tgt !== 'custom_json') {
+            return buildMap(config.hw, script, 'target');
+        }
+        return buildMap(config.hw, config.tgt, 'target');
+    }
+
+    function isRTL() { return LANGUAGES[config.lang] && LANGUAGES[config.lang].dir === 'rtl'; }
+
+    function applyRTL() {
+        if (DOM.sampleContainer) DOM.sampleContainer.classList.toggle('rtl', !!isRTL());
+    }
+
+    function syncLangUI(lang) {
+        if (DOM.langSelect) DOM.langSelect.value = lang;
+    }
+
+    // Which practice sources are available in the active language:
+    //  - English: live "news" (RSS is English-only)
+    //  - Languages with a bundled phrases set (Hebrew): "phrases"
+    //  - Everything else: words + custom only (middle button hidden)
+    function langHasPhrases() { return !!(LANGUAGES[config.lang] && LANGUAGES[config.lang].phrases); }
+    function updateModeButtonsForLang() {
+        if (!DOM.newsBtn) return;
+        if (config.lang === 'en') { DOM.newsBtn.style.display = ''; DOM.newsBtn.textContent = 'news'; }
+        else if (langHasPhrases()) { DOM.newsBtn.style.display = ''; DOM.newsBtn.textContent = 'phrases'; }
+        else { DOM.newsBtn.style.display = 'none'; }
+    }
+
+    async function setLang(lang) {
+        if (!LANGUAGES[lang]) return;
+        config.lang = lang; saveConfig();
+        syncLangUI(lang); applyRTL(); updateModeButtonsForLang();
+
+        // Reconcile the current mode with the sources available in the new language.
+        if (config.mode === 'news' && lang !== 'en') config.mode = langHasPhrases() ? 'phrases' : 'words';
+        if (config.mode === 'phrases' && !langHasPhrases()) config.mode = 'words';
+
+        await loadLangDictionary(lang);
+
+        initKeyboard();   // rebuilds source/target maps (non-Latin scripts force their layout)
+        renderKeyboard();
+        restartCurrentMode();
+    }
+
     function getMirroredMap(map) {
         let mirrored = {};
         Object.keys(map).forEach(pos => {
@@ -812,7 +999,7 @@
     }
 
     function initKeyboard() {
-        state.currentMap = buildMap(config.hw, config.tgt, 'target');
+        state.currentMap = currentTargetMap();
         state.sourceMap = buildMap(config.hw, config.sourceKey, 'source');
 
         if (!config.showKb || state.setupOpen) return;
@@ -999,7 +1186,9 @@ const activeChar = document.getElementById('active-char');
 if (activeChar && DOM.caret) {
     DOM.caret.classList.remove('blinking');
     DOM.caret.style.display = state.testCompleted || state.setupOpen ? 'none' : 'block';
-    DOM.caret.style.transform = `translate(${activeChar.offsetLeft}px, ${activeChar.offsetTop}px)`;
+    // In RTL the caret sits on the right edge of the next character to type.
+    const caretX = isRTL() ? (activeChar.offsetLeft + activeChar.offsetWidth) : activeChar.offsetLeft;
+    DOM.caret.style.transform = `translate(${caretX}px, ${activeChar.offsetTop}px)`;
     clearTimeout(blinkTimeout); blinkTimeout = setTimeout(() => DOM.caret.classList.add('blinking'), 500);
             
             const lineHeight = 51.2;
@@ -1056,8 +1245,21 @@ if (activeChar && DOM.caret) {
     function generateWords() {
         setActiveModeBtn('wordsBtn'); config.mode = 'words'; saveConfig();
         const count = parseInt(config.wordCount) || 25; let selected = [];
-        let shuffled = [...commonWords].sort(() => Math.random() - 0.5);
+        let shuffled = [...wordPool()].sort(() => Math.random() - 0.5);
         for(let i=0; i<count; i++) selected.push(shuffled[i % shuffled.length]); setupNewTest(selected.join(' '));
+    }
+
+    // "phrases" mode: whole curated sentences from the active language (currently Hebrew).
+    // Occupies the middle mode button where English shows live "news".
+    function generatePhrases() {
+        const phrases = (LANGUAGES[config.lang] && LANGUAGES[config.lang].phrases) || [];
+        if (phrases.length === 0) { generateWords(); return; }
+        setActiveModeBtn('newsBtn'); config.mode = 'phrases'; saveConfig();
+        const count = parseInt(config.wordCount) || 25;
+        const pool = [...phrases].sort(() => Math.random() - 0.5);
+        let out = [], wc = 0, i = 0;
+        while (wc < count) { const p = pool[i % pool.length]; out.push(p); wc += p.split(' ').length; i++; }
+        setupNewTest(out.join(' '));
     }
 
     async function fetchNews() {
@@ -1076,7 +1278,7 @@ if (activeChar && DOM.caret) {
 
     function checkTestEnd() {
         if (parseInt(config.timed) > 0 && state.timerRemaining > 0) {
-            const shuffled = [...commonWords].sort(() => Math.random() - 0.5); const extra = [];
+            const shuffled = [...wordPool()].sort(() => Math.random() - 0.5); const extra = [];
             for (let i = 0; i < 15; i++) extra.push(shuffled[i % shuffled.length]); state.sample += ' ' + extra.join(' ');
             initSampleTextDOM(); highlightExpected(); return;
         }
@@ -1248,7 +1450,7 @@ function endTest(earlyExit = false) {
                 HARDWARE[config.hw].pos.forEach(p => {
                     if (getFingerName(p) === finger) {
                         const label = workingMap[p];
-                        if (label && label.length === 1 && label.match(/[a-z]/i)) charWeights[label.toLowerCase()] = (charWeights[label.toLowerCase()] || 0) + Math.round((1 - (d.correct / d.total)) * 5);
+                        if (label && label.length === 1 && label.match(/[a-zא-תء-ي]/i)) charWeights[label.toLowerCase()] = (charWeights[label.toLowerCase()] || 0) + Math.round((1 - (d.correct / d.total)) * 5);
                     }
                 });
             }
@@ -1261,18 +1463,19 @@ function endTest(earlyExit = false) {
         }
 
         if (selected.length < count) {
-            const scored = commonWords.filter(w => !state.mistakeWords.has(w)).map(word => {
+            const scored = wordPool().filter(w => !state.mistakeWords.has(w)).map(word => {
                 let hits = 0; for (const ch of word) { if (charWeights[ch]) hits += charWeights[ch]; } return { word, density: hits / word.length };
             }).filter(w => w.density > 0).sort((a, b) => b.density - a.density);
             const topTier = scored.slice(0, Math.max((count - selected.length) * 2, 20)).sort(() => Math.random() - 0.5);
             for (let i = 0; i < (count - selected.length) && i < topTier.length; i++) selected.push(topTier[i].word);
         }
 
-        if (selected.length < count) {
+        if (selected.length < count && Object.keys(charWeights).length > 0) {
             const weightedChars = Object.entries(charWeights).flatMap(([c, n]) => Array(n).fill(c)); const vowels = 'aeiou';
+            const useVowels = config.lang !== 'he';   // Hebrew has no written vowels; drill the target letters directly
             while (selected.length < count) {
                 let w = '', len = 3 + Math.floor(Math.random() * 4);
-                for (let j = 0; j < len; j++) w += (j % 2 === 0) ? weightedChars[Math.floor(Math.random() * weightedChars.length)] : vowels[Math.floor(Math.random() * vowels.length)];
+                for (let j = 0; j < len; j++) w += (useVowels && j % 2 !== 0) ? vowels[Math.floor(Math.random() * vowels.length)] : weightedChars[Math.floor(Math.random() * weightedChars.length)];
                 selected.push(w);
             }
         }
@@ -1346,7 +1549,10 @@ function endTest(earlyExit = false) {
     
     function restartCurrentMode() {
         if (config.mode === 'mistakes') { generateWords(); return; }
-        if (config.mode === 'words') generateWords(); else if (config.mode === 'news') fetchNews(); else setupNewTest(state.sample, config.mode === 'custom');
+        if (config.mode === 'words') generateWords();
+        else if (config.mode === 'phrases') generatePhrases();
+        else if (config.mode === 'news') fetchNews();
+        else setupNewTest(state.sample, config.mode === 'custom');
     }
     
     function openModal() { setActiveModeBtn('myTextBtn'); DOM.textModal.style.display = 'flex'; DOM.customTextInput.focus(); }
@@ -1365,19 +1571,19 @@ function endTest(earlyExit = false) {
             let trg = config.mirror ? mirrorMap[targetPos] : targetPos;
             
             if (config.tgt !== 'custom_dragged') {
-                config.draggedMap = { ...buildMap(config.hw, config.tgt, 'target') }; 
+                config.draggedMap = { ...currentTargetMap() };   // seed from the effective layout (Hebrew when active)
                 if(!Array.from(DOM.targetSelect.options).find(opt => opt.value === 'custom_dragged')) {
                     DOM.targetSelect.add(new Option('Custom (Dragged)', 'custom_dragged'));
                 }
                 config.tgt = 'custom_dragged'; DOM.targetSelect.value = 'custom_dragged';
             }
-            
+
             let temp = config.draggedMap[src];
             config.draggedMap[src] = config.draggedMap[trg];
             config.draggedMap[trg] = temp;
-            
+
             saveConfig();
-            state.currentMap = buildMap(config.hw, config.tgt, 'target');
+            state.currentMap = currentTargetMap();
         }
         state.isDragging = false; DOM.dragGhost.style.display = 'none'; renderKeyboard();
     };
@@ -1518,7 +1724,7 @@ if (state.testCompleted) {
             } else {
                 state.mistakes++; state.currentStreak = 0; DOM.streakCount.textContent = '0'; playErrorSound();
                 const expected = targetChar?.toLowerCase();
-                if (expected && expected.match(/[a-z]/)) state.mistakeChars[expected] = (state.mistakeChars[expected] || 0) + 1;
+                if (expected && expected.match(/[a-zא-תء-ي]/)) state.mistakeChars[expected] = (state.mistakeChars[expected] || 0) + 1;
                 const cw = getCurrentWord(state.sample, state.typed.length); if (cw) state.mistakeWords.add(cw);
             }
 
@@ -1551,45 +1757,52 @@ if (state.testCompleted) {
             DOM.overlay.style.display = 'none';
         }
         
+        buildScriptLayouts();   // derive the hebrew/arabic target layouts for every board
+        Object.keys(LANGUAGES).forEach(k => DOM.langSelect.add(new Option(LANGUAGES[k].name, k)));
+
         Object.keys(HARDWARE).forEach(k => DOM.hwSelect.add(new Option(HARDWARE[k].name, k)));
-        ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => { 
+        ['qwerty', 'colemak-dh', 'dvorak'].forEach(k => {
             DOM.sourceSelect.add(new Option(k.toUpperCase(), k)); 
             DOM.targetSelect.add(new Option(k.toUpperCase(), k)); 
         });
         
         DOM.targetSelect.insertBefore(new Option('Default (Same as Source)', 'default'), DOM.targetSelect.firstChild);
 
-        loadConfig(); 
+        loadConfig();
+        if (!LANGUAGES[config.lang]) config.lang = 'en';
+        syncLangUI(config.lang); applyRTL(); updateModeButtonsForLang();
+        DOM.langSelect.onchange = (e) => { setLang(e.target.value); };
 
         DOM.hwSelect.onchange = (e) => { setPref('hw', e.target.value); };
-        DOM.sourceSelect.onchange = (e) => { 
-            setPref('sourceKey', e.target.value); 
+        DOM.sourceSelect.onchange = (e) => {
+            setPref('sourceKey', e.target.value);
             state.sourceMap = buildMap(config.hw, e.target.value, 'source');
-            if (config.tgt === 'default') { state.currentMap = buildMap(config.hw, config.tgt, 'target'); renderKeyboard(); }
-            restartCurrentMode(); 
+            if (config.tgt === 'default') { state.currentMap = currentTargetMap(); renderKeyboard(); }
+            restartCurrentMode();
         };
-        DOM.targetSelect.onchange = (e) => { 
+        DOM.targetSelect.onchange = (e) => {
             setPref('tgt', e.target.value);
-            state.currentMap = buildMap(config.hw, e.target.value, 'target'); renderKeyboard(); restartCurrentMode(); 
+            state.currentMap = currentTargetMap(); renderKeyboard(); restartCurrentMode();
         };
-        
-        DOM.wordCountSelect.onchange = (e) => { setPref('wordCount', e.target.value); if(config.mode === 'words') generateWords(); };
-        DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); }; 
-        
-        DOM.wordsBtn.onclick = generateWords; 
-        DOM.newsBtn.onclick = fetchNews; 
+
+        DOM.wordCountSelect.onchange = (e) => { setPref('wordCount', e.target.value); if(config.mode === 'words') generateWords(); else if (config.mode === 'phrases') generatePhrases(); };
+        DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); };
+
+        DOM.wordsBtn.onclick = generateWords;
+        DOM.newsBtn.onclick = () => langHasPhrases() ? generatePhrases() : fetchNews();
         DOM.myTextBtn.onclick = openModal;
-        
+
         if (config.mode === 'words') setActiveModeBtn('wordsBtn');
-        else if (config.mode === 'news') setActiveModeBtn('newsBtn');
+        else if (config.mode === 'news' || config.mode === 'phrases') setActiveModeBtn('newsBtn');
         else setActiveModeBtn('myTextBtn');
 
-        // NEW: Wait for the Monkeytype 200-word dictionary to load!
+        // Load word lists: Monkeytype's English list, plus the active language's list if non-English.
         await loadDictionary();
+        await loadLangDictionary(config.lang);
 
         if (config.showKb && !state.setupOpen) initKeyboard();
-        else setupNewTest(state.sample || commonWords.slice(0, parseInt(config.wordCount) || 25).join(' ')); 
-        
+        else setupNewTest(state.sample || wordPool().slice(0, parseInt(config.wordCount) || 25).join(' '));
+
         restartCurrentMode();
     }
 

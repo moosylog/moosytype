@@ -42,6 +42,7 @@ Instead of making you guess where your keys are, it shows a live, interactive ma
 * **Open Source & Local:** Free, transparent, and private. Everything runs in your browser with zero backend or dependencies.
 
 
+* **Multi-Language:** An input-language selector (English, Spanish, French, Italian, Portuguese, Hebrew, Arabic) teaches blind typing in each language, with words sourced from Monkeytype. Hebrew and Arabic switch the on-screen keyboard to their standard script layout (SI-1452 / Arabic 101) and render right-to-left; the Latin languages keep your chosen layout so you can drill it with foreign-language text.
 
 ---
 

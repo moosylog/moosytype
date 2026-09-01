@@ -42,13 +42,7 @@ Instead of making you guess where your keys are, it shows a live, interactive ma
 * **Open Source & Local:** Free, transparent, and private. Everything runs in your browser with zero backend or dependencies.
 
 
-* **Strict Monkeytype Math:** Utilizes the exact Net WPM and accuracy formulas from the competitive typing standard. If you make an uncorrected typo, the entire word is aggressively dropped from your speed calculation.
-* **Smart Mistake Practice:** The engine tracks your exact fingering and key errors, automatically generating custom practice text targeting your weakest characters.
-* **Mechanical Audio Synthesis:** No `.wav` files needed. Features a custom Web Audio API synthesizer that mathematically mimics the sound of mechanical switches to keep you in rhythm.
-* **Familiar Aesthetics:** A beautiful, distraction-free UI featuring buttery-smooth caret animations, dynamic Focus Mode color-fading, and classic typing colorways.
-* **Live News & Custom Text:** Break the monotony of top-200 English words by typing live RSS news feeds or pasting your own custom practice text.
 * **Multi-Language:** An input-language selector (English, Spanish, French, Italian, Portuguese, Hebrew, Arabic) teaches blind typing in each language, with words sourced from Monkeytype. Hebrew and Arabic switch the on-screen keyboard to their standard script layout (SI-1452 / Arabic 101) and render right-to-left; the Latin languages keep your chosen layout so you can drill it with foreign-language text.
-* **Offline Ready & Local Storage:** Everything runs locally. Your top scores, heatmaps, and preferences are saved right in your browser cache.
 
 ---
 

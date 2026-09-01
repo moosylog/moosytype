@@ -27,18 +27,20 @@
 
 ## 🌐 Overview
 
-Moosytype is a **visual layout trainer** built specifically for ergonomic, split, and columnar keyboards. It is the evolution of Alpha Test Drive.
+Moosytype is a simple typing trainer built specifically for split, ergonomic, and columnar keyboards. 
 
-Instead of just looking at a screen of text, Moosytype trains your physical muscle memory by:
-- Showing a live, interactive SVG map of your exact physical keyboard  
-- Highlighting the expected key you need to press on your specific layout  
-- Allowing you to test-drive completely new alpha layers (Colemak-DH, Dvorak, etc.) before flashing them to your firmware  
-
-It is built as a lightning-fast, single HTML file that runs entirely in your browser. No installation, no backend, and no extra downloads—just pure, focused practice.
+Instead of making you guess where your keys are, it shows a live, interactive map of your exact keyboard on the screen. As you type, it highlights the keys you need to hit next. It also lets you test-drive new layouts like Colemak-DH or Dvorak to build up your muscle memory *before* you actually flash them to your hardware.
 
 ---
 
-## 🚀 Key Features
+## ✨ Key Highlights
+
+* **Visualize Your Split Keyboard:** Map your Glove80, Go60, Corne, or Voyager in QWERTY, Colemak-DH, Dvorak, or any custom layout.
+* **Test Drive Before Flashing:** Practice any QWERTY alternative safely in your browser *before* flashing it to your keyboard's firmware.
+* **Monkeytype-Inspired Experience:** Train inside a clean, beautiful, and instantly familiar fluid interface.
+* **Algorithmic Mistake Tracking:** Automatically generate targeted practice sessions to isolate and fix your weakest keys.
+* **Open Source & Local:** Free, transparent, and private. Everything runs in your browser with zero backend or dependencies.
+
 
 * **Strict Monkeytype Math:** Utilizes the exact Net WPM and accuracy formulas from the competitive typing standard. If you make an uncorrected typo, the entire word is aggressively dropped from your speed calculation.
 * **Smart Mistake Practice:** The engine tracks your exact fingering and key errors, automatically generating custom practice text targeting your weakest characters.
